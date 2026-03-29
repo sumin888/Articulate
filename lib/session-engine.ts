@@ -1,3 +1,9 @@
+import {
+  MANDATORY_PROBE_INSTRUCTION,
+  TIE_BACK_RETRY_INSTRUCTION,
+  modelResponseReferencesStudent,
+  needsProbingFollowUp,
+} from './adaptive-follow-up'
 import { createChatCompletion } from './chat-completion'
 import { SessionState, Phase } from './session-store'
 
@@ -65,15 +71,30 @@ export async function generateOpeningQuestion(session: SessionState): Promise<En
   return parseEngineResponse(text, session.phase)
 }
 
+function clampProbeTurn(parsed: EngineResponse, currentPhase: Phase): EngineResponse {
+  return {
+    ...parsed,
+    phaseAdvanced: false,
+    sessionComplete: false,
+    newPhase: currentPhase,
+  }
+}
+
 export async function processStudentResponse(
   session: SessionState,
   studentMessage: string
 ): Promise<EngineResponse> {
+  const requireProbe = needsProbingFollowUp(studentMessage)
+  // Thin answers need a real follow-up first — do not wrap the phase on the same turn.
+  const atLimit =
+    !requireProbe &&
+    session.turnsInPhase >= PHASE_LIMITS[session.phase] &&
+    session.phase !== 'complete'
+
   const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
     { role: 'system', content: buildSystemPrompt(session) },
   ]
 
-  // Add conversation history
   for (const msg of session.conversationHistory) {
     messages.push({
       role: msg.role === 'articulate' ? 'assistant' : 'user',
@@ -81,25 +102,42 @@ export async function processStudentResponse(
     })
   }
 
-  // Add current student message
   messages.push({ role: 'user', content: studentMessage })
 
-  // Add phase-advance instruction if at limit
-  const atLimit = session.turnsInPhase >= PHASE_LIMITS[session.phase]
-  if (atLimit && session.phase !== 'complete') {
+  if (requireProbe) {
+    messages.push({ role: 'user', content: MANDATORY_PROBE_INSTRUCTION })
+  }
+
+  if (atLimit) {
     messages.push({
       role: 'user',
       content: `[System: The student has completed enough turns in the ${session.phase} phase. Wrap up this phase and advance.]`,
     })
   }
 
-  const response = await createChatCompletion({
-    max_tokens: 500,
-    messages,
-  })
+  async function runPass(): Promise<EngineResponse> {
+    const response = await createChatCompletion({
+      max_tokens: 500,
+      messages,
+    })
+    const text = response.choices[0]?.message?.content ?? ''
+    return parseEngineResponse(text, session.phase)
+  }
 
-  const text = response.choices[0]?.message?.content ?? ''
-  return parseEngineResponse(text, session.phase)
+  let result = await runPass()
+
+  if (requireProbe) {
+    result = clampProbeTurn(result, session.phase)
+
+    if (!modelResponseReferencesStudent(studentMessage, result.message)) {
+      messages.push({ role: 'assistant', content: result.message })
+      messages.push({ role: 'user', content: TIE_BACK_RETRY_INSTRUCTION })
+      result = await runPass()
+      result = clampProbeTurn(result, session.phase)
+    }
+  }
+
+  return result
 }
 
 function parseEngineResponse(text: string, currentPhase: Phase): EngineResponse {
