@@ -47,12 +47,13 @@ export function modelResponseReferencesStudent(studentMessage: string, modelRepl
 }
 
 export const MANDATORY_PROBE_INSTRUCTION = `[System — mandatory follow-up]
-The student's last answer is too thin, evasive, or generic to treat as a completed turn.
-You MUST ask exactly ONE follow-up question that:
-- quotes or clearly paraphrases something specific from their last message (if they only wrote a few words, name that and ask what they mean concretely), and
-- presses on a gap, ambiguity, or missing reasoning — not a restatement of your previous question.
+The student's last answer is too brief or generic to assess fairly. Stay composed and professional — you need a fuller response to understand their reasoning.
+You MUST ask exactly ONE follow-up that:
+- briefly acknowledges what they gave (even a word or two) without praising emptily, and
+- quotes or paraphrases something from their last message (if they wrote almost nothing, name that plainly and ask for a concrete example, passage, step, or reason), and
+- makes clear you want a developed answer — not a rephrase of your previous question.
 
-Do NOT output PHASE_COMPLETE or SESSION_COMPLETE on this turn. Stay in the current phase.`
+Tone: fair examiner who expects substance, not a quiz show host. Do NOT output PHASE_COMPLETE or SESSION_COMPLETE on this turn. Stay in the current phase.`
 
 export const TIE_BACK_RETRY_INSTRUCTION = `[System]
-Your last reply did not clearly connect to the student's words. Ask ONE new follow-up that explicitly echoes a phrase or idea from their last message (or acknowledges how little they wrote and asks for a concrete example or step). Still do NOT output PHASE_COMPLETE or SESSION_COMPLETE.`
+Your last reply did not clearly tie to the student's words. Ask ONE new follow-up that explicitly builds on their last message (or notes how little they wrote and asks for one specific addition: evidence, step, or clarification). Stay professional. Still do NOT output PHASE_COMPLETE or SESSION_COMPLETE.`

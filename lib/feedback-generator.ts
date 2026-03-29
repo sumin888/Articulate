@@ -1,5 +1,5 @@
 import { createChatCompletion } from './chat-completion'
-import { SessionState, Feedback } from './session-store'
+import { Feedback, SessionState } from './session-store'
 
 export async function generateFeedback(session: SessionState): Promise<Feedback> {
   const transcript = session.conversationHistory
@@ -15,7 +15,7 @@ export async function generateFeedback(session: SessionState): Promise<Feedback>
     messages: [
       {
         role: 'user',
-        content: `You are generating end-of-session feedback for a student after an oral practice session.
+        content: `You are generating end-of-session feedback after a practice oral session (low stakes — no grades, no rubric, no numeric scores).
 
 Source material: ${session.sourceTitle}
 
@@ -25,11 +25,13 @@ ${conceptList}
 Full session transcript:
 ${transcript}
 
+Tone: like a sharp but fair instructor debrief — specific and honest, similar to a strong post-oral comment: name real strengths with references to what the student actually said; name concrete gaps (e.g. hand-wavy evidence, confused terminology, described a result without showing a derivation when asked); give one actionable next step. Not harsh, not fluffy.
+
 Generate feedback in this exact JSON format:
 {
-  "strength": "2-3 sentences on what the student did well and why it matters. Be specific — reference what they actually said.",
-  "areaToDevelop": "2-3 sentences on the specific gap the session exposed. Name the exact concept or reasoning failure. Be honest.",
-  "recommendedNextStep": "One concrete action the student should take before their next session. Specific, actionable, not generic."
+  "strength": "2-3 sentences. Be specific — reference what they actually said.",
+  "areaToDevelop": "2-3 sentences. Name the gap or reasoning weakness clearly.",
+  "recommendedNextStep": "One concrete action before their next practice session."
 }
 
 Return only valid JSON, nothing else.`,

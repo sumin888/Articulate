@@ -39,7 +39,6 @@ export async function POST(req: NextRequest) {
     console.log('[upload] concepts extracted:', concepts.length)
     const session = createSession(sourceText, sourceTitle, concepts)
 
-    // Generate opening question and add to history
     console.log('[upload] calling generateOpeningQuestion...')
     const opening = await generateOpeningQuestion(session)
     console.log('[upload] opening question generated')

@@ -154,8 +154,8 @@ export default function UploadPage() {
           )}
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Practice mode — no grades, no rubric. Just you and the material.
+        <p className="text-center text-xs text-gray-400 mt-6 max-w-md mx-auto leading-relaxed">
+          Practice only — low stakes, no rubric or scores. Structured oral session and feedback when you finish.
         </p>
       </div>
     </main>

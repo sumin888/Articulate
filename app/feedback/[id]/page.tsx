@@ -21,24 +21,18 @@ export default function FeedbackPage({ params }: FeedbackPageProps) {
 
   useEffect(() => {
     async function load() {
-      // If feedback isn't ready yet, generate it
       const genRes = await fetch(`/api/session/${id}/feedback`, { method: 'POST' })
       if (genRes.ok) {
         const genData = await genRes.json()
-        if (genData.feedback) {
-          setFeedback(genData.feedback)
-        }
+        if (genData.feedback) setFeedback(genData.feedback)
       }
 
-      // Load session data for transcript
       const getRes = await fetch(`/api/session/${id}/feedback`)
       if (getRes.ok) {
         const getData = await getRes.json()
         setHistory(getData.history ?? [])
         setSourceTitle(getData.sourceTitle ?? '')
-        if (getData.feedback && !feedback) {
-          setFeedback(getData.feedback)
-        }
+        if (getData.feedback) setFeedback(getData.feedback)
       }
 
       setLoading(false)
@@ -67,7 +61,7 @@ export default function FeedbackPage({ params }: FeedbackPageProps) {
           >
             ← New session
           </button>
-          <h1 className="text-2xl font-semibold text-gray-900">Session Feedback</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Session feedback</h1>
           {sourceTitle && (
             <p className="text-sm text-gray-500 mt-1">{sourceTitle}</p>
           )}

@@ -44,5 +44,6 @@ export async function GET(
     feedback: session.feedback ?? null,
     sourceTitle: session.sourceTitle,
     history: session.conversationHistory,
+    phase: session.phase,
   })
 }

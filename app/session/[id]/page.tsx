@@ -24,7 +24,6 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load existing session on mount
   useEffect(() => {
     async function loadSession() {
       const res = await fetch(`/api/session/${id}/feedback`)
@@ -32,6 +31,9 @@ export default function SessionPage({ params }: SessionPageProps) {
       const data = await res.json()
       if (data.history?.length) {
         setMessages(data.history)
+      }
+      if (data.phase && data.phase !== 'complete') {
+        setPhase(data.phase)
       }
     }
     loadSession()
