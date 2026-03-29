@@ -1,4 +1,4 @@
-import { createChatCompletion } from './claude'
+import { createChatCompletion } from './chat-completion'
 import { SessionState, Phase } from './session-store'
 
 const PHASE_LIMITS: Record<Phase, number> = {

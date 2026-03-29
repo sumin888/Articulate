@@ -1,4 +1,4 @@
-import { createChatCompletion } from './claude'
+import { createChatCompletion } from './chat-completion'
 import { Concept } from './session-store'
 
 export async function extractConcepts(text: string): Promise<Concept[]> {

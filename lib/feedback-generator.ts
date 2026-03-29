@@ -1,4 +1,4 @@
-import { createChatCompletion } from './claude'
+import { createChatCompletion } from './chat-completion'
 import { SessionState, Feedback } from './session-store'
 
 export async function generateFeedback(session: SessionState): Promise<Feedback> {
