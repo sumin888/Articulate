@@ -93,35 +93,34 @@ export default function SessionPage({ params }: SessionPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
-        <span className="font-semibold text-gray-800 text-sm tracking-tight">Articulate</span>
+    <div className="flex flex-col h-screen bg-background text-foreground">
+      <header className="flex items-center justify-between px-5 py-3 bg-background/90 backdrop-blur-md border-b border-border shrink-0">
+        <span className="font-display font-bold text-sm tracking-tight">Articulate</span>
         <button
+          type="button"
           onClick={endSession}
           disabled={loading || messages.length < 2}
-          className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           End session & get feedback
         </button>
       </header>
 
-      {/* Chat */}
       <div className="flex-1 overflow-hidden">
         <ChatWindow messages={messages} phase={phase} loading={loading} />
       </div>
 
-      {/* Input area */}
-      <div className="shrink-0 bg-white border-t border-gray-200 px-4 py-4 space-y-3">
-        {error && <p className="text-xs text-red-500 px-1">{error}</p>}
+      <div className="shrink-0 bg-card border-t border-border px-4 py-4 space-y-3">
+        {error && <p className="text-xs text-destructive px-1">{error}</p>}
 
         {sessionComplete && (
           <div className="text-center">
-            <p className="text-sm text-gray-600 mb-2">Session complete.</p>
+            <p className="text-sm text-muted-foreground mb-2">Session complete.</p>
             <button
+              type="button"
               onClick={endSession}
               disabled={loading}
-              className="px-5 py-2 bg-gray-900 text-white text-sm rounded-xl hover:bg-gray-800 disabled:opacity-50"
+              className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Generating feedback…' : 'See feedback'}
             </button>
@@ -153,12 +152,12 @@ export default function SessionPage({ params }: SessionPageProps) {
                   disabled={loading}
                   placeholder={loading ? 'Thinking…' : 'Your answer…'}
                   autoFocus
-                  className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:bg-gray-50"
+                  className="flex-1 rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || loading}
-                  className="px-4 py-3 bg-gray-900 text-white text-sm rounded-xl hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-3 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   Send
                 </button>

@@ -1,0 +1,158 @@
+"use client";
+
+import Link from "next/link";
+import { Mic, Github, Linkedin, Twitter } from "lucide-react";
+
+const footerLinks = {
+  product: [
+    { label: "Features", href: "#features" },
+    { label: "How It Works", href: "#how-it-works" },
+    { label: "Modes", href: "#modes" },
+    { label: "Pricing", href: "/pricing" },
+  ],
+  resources: [
+    { label: "Documentation", href: "/docs" },
+    { label: "Help Center", href: "/help" },
+    { label: "Blog", href: "/blog" },
+    { label: "Research", href: "/research" },
+  ],
+  company: [
+    { label: "About", href: "#about" },
+    { label: "Careers", href: "/careers" },
+    { label: "Contact", href: "/contact" },
+    { label: "Partners", href: "/partners" },
+  ],
+  legal: [
+    { label: "Privacy", href: "/privacy" },
+    { label: "Terms", href: "/terms" },
+    { label: "Security", href: "/security" },
+  ],
+};
+
+export function Footer() {
+  return (
+    <footer id="about" className="bg-muted/30 border-t border-border">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
+          {/* Brand column */}
+          <div className="col-span-2">
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <div className="w-9 h-9 rounded-xl animated-gradient flex items-center justify-center">
+                <Mic className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-display text-xl font-bold text-foreground">
+                Articulate
+              </span>
+            </Link>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-xs">
+              The platform that evaluates understanding by listening to how you explain it.
+              Built by MIT and Harvard students.
+            </p>
+            {/* Social links */}
+            <div className="flex items-center gap-4">
+              <a
+                href="https://github.com"
+                className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Github className="w-4 h-4" />
+              </a>
+              <a
+                href="https://linkedin.com"
+                className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Linkedin className="w-4 h-4" />
+              </a>
+              <a
+                href="https://twitter.com"
+                className="w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Twitter className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+
+          {/* Link columns */}
+          <div>
+            <h3 className="font-semibold text-foreground mb-4">Product</h3>
+            <ul className="space-y-3">
+              {footerLinks.product.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-foreground mb-4">Resources</h3>
+            <ul className="space-y-3">
+              {footerLinks.resources.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-foreground mb-4">Company</h3>
+            <ul className="space-y-3">
+              {footerLinks.company.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-foreground mb-4">Legal</h3>
+            <ul className="space-y-3">
+              {footerLinks.legal.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            2026 Articulate. All rights reserved.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Made with care at MIT and Harvard
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}

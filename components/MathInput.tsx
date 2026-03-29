@@ -24,11 +24,11 @@ export default function MathInput({ prompt, onSubmit, disabled }: Props) {
   }
 
   return (
-    <div className="border border-blue-300 rounded-lg p-4 bg-blue-50">
+    <div className="border border-accent/40 rounded-2xl p-4 bg-accent/5">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-blue-600 text-sm font-medium">Written input required</span>
+        <span className="text-accent text-sm font-medium">Written input required</span>
       </div>
-      <p className="text-sm text-gray-700 mb-3">{prompt}</p>
+      <p className="text-sm text-foreground mb-3">{prompt}</p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <textarea
           ref={ref}
@@ -37,17 +37,17 @@ export default function MathInput({ prompt, onSubmit, disabled }: Props) {
           disabled={disabled}
           placeholder="Type your answer here. For math, use LaTeX notation: e.g. i\hbar \frac{\partial \psi}{\partial t} = \hat{H}\psi"
           rows={3}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring"
           onKeyDown={e => {
             if (e.key === 'Enter' && e.metaKey) handleSubmit(e)
           }}
         />
         <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-400">⌘↵ to submit</span>
+          <span className="text-xs text-muted-foreground">⌘↵ to submit</span>
           <button
             type="submit"
             disabled={!value.trim() || disabled}
-            className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Submit
           </button>
