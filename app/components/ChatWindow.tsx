@@ -6,6 +6,7 @@ import { Message } from '@/lib/session-store'
 type Props = {
   messages: Message[]
   phase: string
+  loading?: boolean
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -22,7 +23,7 @@ const PHASE_COLOR: Record<string, string> = {
   complete: 'bg-green-100 text-green-700',
 }
 
-export default function ChatWindow({ messages, phase }: Props) {
+export default function ChatWindow({ messages, phase, loading }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -59,6 +60,22 @@ export default function ChatWindow({ messages, phase }: Props) {
             </div>
           </div>
         ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3">
+              <span className="block text-xs font-semibold text-gray-400 mb-2">Articulate</span>
+              <div className="flex gap-1.5 items-center h-4">
+                {[0, 1, 2].map(i => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
     </div>

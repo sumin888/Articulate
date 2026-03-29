@@ -19,7 +19,9 @@ export async function createChatCompletion(params: Omit<ChatParams, 'model' | 's
   let lastError: unknown
   for (const model of MODELS) {
     try {
-      return await openrouter.chat.completions.create({ ...params, model, stream: false })
+      const result = await openrouter.chat.completions.create({ ...params, model, stream: false })
+      console.log('[model used]', model)
+      return result
     } catch (err: unknown) {
       const status = (err as { status?: number })?.status
       if (status === 429 || status === 503 || status === 404) {

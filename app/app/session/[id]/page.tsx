@@ -106,7 +106,7 @@ export default function SessionPage({ params }: SessionPageProps) {
 
       {/* Chat */}
       <div className="flex-1 overflow-hidden">
-        <ChatWindow messages={messages} phase={phase} />
+        <ChatWindow messages={messages} phase={phase} loading={loading} />
       </div>
 
       {/* Input area */}
