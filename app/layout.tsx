@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Articulate — Learn by Explaining",
   description:
     "Practice oral sessions on your own notes. Structured recognition, retrieval, and interpretation with adaptive follow-ups and actionable feedback.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
