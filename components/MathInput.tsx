@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { MathText } from '@/components/MathText'
 
 type Props = {
   prompt: string
@@ -28,7 +29,9 @@ export default function MathInput({ prompt, onSubmit, disabled }: Props) {
       <div className="flex items-center gap-2 mb-2">
         <span className="text-accent text-sm font-medium">Written input required</span>
       </div>
-      <p className="text-sm text-foreground mb-3">{prompt}</p>
+      <div className="mb-3 text-sm text-foreground">
+        <MathText>{prompt}</MathText>
+      </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <textarea
           ref={ref}

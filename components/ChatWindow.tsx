@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { MathText } from '@/components/MathText'
 import { Message } from '@/lib/session-store'
 
 type Props = {
@@ -56,7 +57,9 @@ export default function ChatWindow({ messages, phase, loading }: Props) {
               {msg.role === 'articulate' && (
                 <span className="block text-xs font-semibold text-muted-foreground mb-1">Articulate</span>
               )}
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              <MathText variant={msg.role === 'student' ? 'onPrimary' : 'default'}>
+                {msg.content}
+              </MathText>
             </div>
           </div>
         ))}

@@ -27,6 +27,8 @@ ${transcript}
 
 Tone: like a sharp but fair instructor debrief — specific and honest, similar to a strong post-oral comment: name real strengths with references to what the student actually said; name concrete gaps (e.g. hand-wavy evidence, confused terminology, described a result without showing a derivation when asked); give one actionable next step. Not harsh, not fluffy.
 
+If you mention equations or symbols, use LaTeX in delimiters: inline \\(...\\) or $...$, display $$...$$ or \\[...\\].
+
 Generate feedback in this exact JSON format:
 {
   "strength": "2-3 sentences. Be specific — reference what they actually said.",

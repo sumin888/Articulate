@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { extractConcepts } from '@/lib/content-analyzer'
-import { createSession } from '@/lib/session-store'
-import { generateOpeningQuestion } from '@/lib/session-engine'
-import { updateSession } from '@/lib/session-store'
+import { bootstrapSessionFromMaterial } from '@/lib/content-analyzer'
+import { createSession, updateSession } from '@/lib/session-store'
+
+/** Parse only the first N pages for speed; enough for typical lecture PDFs. */
+const PDF_FIRST_PAGES = 50
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,8 +21,20 @@ export async function POST(req: NextRequest) {
 
       const { PDFParse } = await import('pdf-parse')
       const parser = new PDFParse({ data: buffer })
-      const result = await parser.getText()
-      sourceText = result.text
+      try {
+        let result = await parser.getText({ first: PDF_FIRST_PAGES })
+        sourceText = result.text
+        if (sourceText.trim().length < 100) {
+          result = await parser.getText()
+          sourceText = result.text
+        }
+      } finally {
+        try {
+          await parser.destroy()
+        } catch (destroyErr) {
+          console.warn('[upload] parser.destroy:', destroyErr)
+        }
+      }
     } else if (pastedText) {
       sourceText = pastedText
       sourceTitle = 'Pasted Notes'
@@ -34,21 +47,22 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[upload] text extracted, length:', sourceText.length)
-    console.log('[upload] calling extractConcepts...')
-    const concepts = await extractConcepts(sourceText)
-    console.log('[upload] concepts extracted:', concepts.length)
+    console.log('[upload] bootstrapSessionFromMaterial (single LLM call)...')
+    const { concepts, openingMessage } = await bootstrapSessionFromMaterial(sourceText, sourceTitle)
+    console.log('[upload] bootstrap done, concepts:', concepts.length)
     const session = createSession(sourceText, sourceTitle, concepts)
 
-    console.log('[upload] calling generateOpeningQuestion...')
-    const opening = await generateOpeningQuestion(session)
-    console.log('[upload] opening question generated')
     updateSession(session.id, {
-      conversationHistory: [{ role: 'articulate', content: opening.message }],
+      conversationHistory: [{ role: 'articulate', content: openingMessage }],
     })
 
     return NextResponse.json({ sessionId: session.id })
   } catch (err) {
     console.error('Upload error:', err)
-    return NextResponse.json({ error: 'Failed to process content' }, { status: 500 })
+    const detail = err instanceof Error ? err.message : String(err)
+    return NextResponse.json(
+      { error: 'Failed to process content', detail },
+      { status: 500 }
+    )
   }
 }

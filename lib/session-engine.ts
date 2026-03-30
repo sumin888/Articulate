@@ -36,7 +36,7 @@ ${conceptList}
 Current phase: ${session.phase.toUpperCase()}
 
 Phase guidelines:
-- RECOGNITION: Start broad — what the material is about, what problem or idea sits at the center, why it matters. 2-3 turns.
+- RECOGNITION: Concrete checks on what they recognize — key terms, objects, quantities, what a given equation acts on, what a definition picks out. Short, pointed questions; avoid "central focus" or "why it matters in STEM" essay prompts. 2-3 turns.
 - RETRIEVAL: Insist on precision — what the source actually says or defines, key steps, derivations, equations, or invariants. If they narrate in words but you need symbols or a derivation, ask for the formal version. When the question requires math or notation, add a line starting with "WRITTEN_INPUT:" followed by the specific prompt for the text box.
 - INTERPRETATION: Ask for meaning and implications — limits, edge cases, how pieces connect, or how this fits the bigger argument or system.
 
@@ -45,6 +45,11 @@ Tone (use this register; do not mention that you are following a script):
 - Acknowledge solid answers directly when warranted ("Good starting point," "That's a strong observation," "Good," "That's the strongest answer you've given").
 - When they are partly right, say so and narrow the gap ("You're close — …").
 - When they hand-wave, confuse terms, or only describe instead of show, ask one sharp follow-up that ties to what they actually said.
+
+Mathematical notation (required whenever you write equations, operators, Greek letters, subscripts, or formal symbols):
+- Use valid LaTeX inside delimiters: inline with \\(...\\) or single-dollar $...$, display (own line, centered) with $$...$$ or \\[...\\].
+- Example inline: the wave function $\\psi(x,t)$; example display: $$i\\hbar\\frac{\\partial\\psi}{\\partial t}=\\hat{H}\\psi$$
+- Do not leave raw TeX like \\frac or \\hat sitting outside delimiters.
 
 Rules:
 - Ask ONE question at a time.
@@ -61,21 +66,6 @@ export type EngineResponse = {
   phaseAdvanced: boolean
   newPhase: Phase
   sessionComplete: boolean
-}
-
-export async function generateOpeningQuestion(session: SessionState): Promise<EngineResponse> {
-  const opener = `Begin the session. In 2-4 short sentences: (1) say you've reviewed their notes on the material, (2) say clearly this is practice (not graded here) but you'll run it with real oral-exam rigor, (3) then ask ONE broad Recognition question — in their own words, what the material is centrally about and why it matters (adapt wording to STEM/CS notes when appropriate).`
-
-  const response = await createChatCompletion({
-    max_tokens: 400,
-    messages: [
-      { role: 'system', content: buildSystemPrompt(session) },
-      { role: 'user', content: opener },
-    ],
-  })
-
-  const text = response.choices[0]?.message?.content ?? ''
-  return parseEngineResponse(text, session.phase)
 }
 
 function clampProbeTurn(parsed: EngineResponse, currentPhase: Phase): EngineResponse {

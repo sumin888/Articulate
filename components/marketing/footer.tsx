@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Mic, Github, Linkedin, Twitter } from "lucide-react";
+import { Github, Linkedin, Twitter } from "lucide-react";
+import { ArticulateLogo } from "@/components/ArticulateLogo";
 
 const footerLinks = {
   product: [
@@ -36,14 +37,7 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
           {/* Brand column */}
           <div className="col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-xl animated-gradient flex items-center justify-center">
-                <Mic className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-display text-xl font-bold text-foreground">
-                Articulate
-              </span>
-            </Link>
+            <ArticulateLogo href="/" size="md" className="mb-4" />
             <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-xs">
               The platform that evaluates understanding by listening to how you explain it.
               Built by MIT and Harvard students.

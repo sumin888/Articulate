@@ -1,4 +1,11 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+/* KaTeX inside primary-colored chat bubbles */
+.math-on-primary .katex,
+.math-on-primary .katex * {
+  color: currentColor !important;
+}
 
 @layer base {
   :root {

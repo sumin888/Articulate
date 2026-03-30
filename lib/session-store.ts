@@ -30,8 +30,12 @@ export type SessionState = {
   createdAt: number
 }
 
-// In-memory store — sufficient for MVP
-const sessions = new Map<string, SessionState>()
+// In-memory store — sufficient for MVP.
+// Use globalThis so upload + session API routes share one Map (Turbopack can otherwise
+// instantiate this module separately per route chunk, which caused "Session not found").
+const g = globalThis as unknown as { __articulateSessionStore?: Map<string, SessionState> }
+const sessions = g.__articulateSessionStore ?? new Map<string, SessionState>()
+g.__articulateSessionStore = sessions
 
 export function createSession(
   sourceMaterial: string,

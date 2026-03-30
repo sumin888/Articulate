@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import ChatWindow from '@/components/ChatWindow'
+import { ArticulateLogo } from '@/components/ArticulateLogo'
 import MathInput from '@/components/MathInput'
+import { SessionHistoryRail } from '@/components/session/SessionHistoryRail'
+import { SessionStudyRail } from '@/components/session/SessionStudyRail'
 import { Message, Phase } from '@/lib/session-store'
 
 type SessionPageProps = {
@@ -93,78 +96,90 @@ export default function SessionPage({ params }: SessionPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between px-5 py-3 bg-background/90 backdrop-blur-md border-b border-border shrink-0">
-        <span className="font-display font-bold text-sm tracking-tight">Articulate</span>
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      <header className="flex shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5">
+        <ArticulateLogo href="/" size="sm" className="transition-opacity hover:opacity-90" />
         <button
           type="button"
           onClick={endSession}
           disabled={loading || messages.length < 2}
-          className="text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
           End session & get feedback
         </button>
       </header>
 
-      <div className="flex-1 overflow-hidden">
-        <ChatWindow messages={messages} phase={phase} loading={loading} />
-      </div>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="hidden h-full min-h-0 w-72 shrink-0 lg:block">
+          <SessionHistoryRail currentSessionId={id} />
+        </div>
 
-      <div className="shrink-0 bg-card border-t border-border px-4 py-4 space-y-3">
-        {error && <p className="text-xs text-destructive px-1">{error}</p>}
-
-        {sessionComplete && (
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">Session complete.</p>
-            <button
-              type="button"
-              onClick={endSession}
-              disabled={loading}
-              className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
-              {loading ? 'Generating feedback…' : 'See feedback'}
-            </button>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col border-border lg:border-x">
+          <div className="min-h-0 flex-1 overflow-hidden bg-background">
+            <ChatWindow messages={messages} phase={phase} loading={loading} />
           </div>
-        )}
 
-        {!sessionComplete && (
-          <>
-            {requestsWrittenInput && (
-              <MathInput
-                prompt={writtenInputPrompt}
-                onSubmit={sendMessage}
-                disabled={loading}
-              />
-            )}
+          <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-4">
+            {error && <p className="px-1 text-xs text-destructive">{error}</p>}
 
-            {!requestsWrittenInput && (
-              <form
-                onSubmit={(e: { preventDefault: () => void }) => {
-                  e.preventDefault()
-                  sendMessage(input)
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  disabled={loading}
-                  placeholder={loading ? 'Thinking…' : 'Your answer…'}
-                  autoFocus
-                  className="flex-1 rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
-                />
+            {sessionComplete && (
+              <div className="text-center">
+                <p className="mb-2 text-sm text-muted-foreground">Session complete.</p>
                 <button
-                  type="submit"
-                  disabled={!input.trim() || loading}
-                  className="px-4 py-3 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  type="button"
+                  onClick={endSession}
+                  disabled={loading}
+                  className="rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
-                  Send
+                  {loading ? 'Generating feedback…' : 'See feedback'}
                 </button>
-              </form>
+              </div>
             )}
-          </>
-        )}
+
+            {!sessionComplete && (
+              <>
+                {requestsWrittenInput && (
+                  <MathInput
+                    prompt={writtenInputPrompt}
+                    onSubmit={sendMessage}
+                    disabled={loading}
+                  />
+                )}
+
+                {!requestsWrittenInput && (
+                  <form
+                    onSubmit={(e: { preventDefault: () => void }) => {
+                      e.preventDefault()
+                      sendMessage(input)
+                    }}
+                    className="flex gap-2"
+                  >
+                    <input
+                      ref={inputRef}
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      disabled={loading}
+                      placeholder={loading ? 'Thinking…' : 'Your answer…'}
+                      autoFocus
+                      className="flex-1 rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!input.trim() || loading}
+                      className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Send
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="hidden h-full min-h-0 w-72 shrink-0 lg:block">
+          <SessionStudyRail />
+        </div>
       </div>
     </div>
   )

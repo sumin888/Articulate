@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Mic, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { ArticulateLogo } from '@/components/ArticulateLogo'
 
 const LOADING_MESSAGES = [
   'Reading your notes…',
@@ -54,7 +55,14 @@ export default function StartSessionPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error ?? 'Something went wrong.')
+        const base = typeof data.error === 'string' ? data.error : 'Something went wrong.'
+        const detail = typeof data.detail === 'string' ? data.detail : ''
+        setError(detail ? `${base} (${detail})` : base)
+        return
+      }
+
+      if (!data.sessionId || typeof data.sessionId !== 'string') {
+        setError('Server did not return a session id. Try again.')
         return
       }
 
@@ -77,12 +85,7 @@ export default function StartSessionPage() {
             <ArrowLeft className="w-4 h-4" />
             Home
           </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg animated-gradient flex items-center justify-center">
-              <Mic className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-display font-bold text-foreground">Articulate</span>
-          </div>
+          <ArticulateLogo href="/" size="sm" />
           <span className="w-16" aria-hidden />
         </div>
       </header>
