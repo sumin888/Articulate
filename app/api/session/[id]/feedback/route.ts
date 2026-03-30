@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const maxDuration = 30
 import { getSession, updateSession } from '@/lib/session-store'
 import { generateFeedback } from '@/lib/feedback-generator'
 
