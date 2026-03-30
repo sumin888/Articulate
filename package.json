@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
+    "@upstash/redis": "^1.37.0",
     "katex": "^0.16.44",
     "lucide-react": "^0.562.0",
     "next": "16.2.1",

@@ -14,7 +14,7 @@ export async function POST(
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    const session = getSession(id)
+    const session = await getSession(id)
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
@@ -28,10 +28,10 @@ export async function POST(
       ...session.conversationHistory,
       { role: 'student' as const, content: message },
     ]
-    updateSession(id, { conversationHistory: updatedHistory })
+    await updateSession(id, { conversationHistory: updatedHistory })
 
     // Get updated session and process
-    const currentSession = getSession(id)!
+    const currentSession = (await getSession(id))!
     const result = await processStudentResponse(currentSession, message)
 
     if (!result.message) {
@@ -48,7 +48,7 @@ export async function POST(
       },
     ]
 
-    updateSession(id, {
+    await updateSession(id, {
       conversationHistory: finalHistory,
       phase: result.newPhase,
       turnsInPhase: result.phaseAdvanced ? 0 : currentSession.turnsInPhase + 1,

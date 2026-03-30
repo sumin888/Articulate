@@ -50,9 +50,9 @@ export async function POST(req: NextRequest) {
     console.log('[upload] bootstrapSessionFromMaterial (single LLM call)...')
     const { concepts, openingMessage } = await bootstrapSessionFromMaterial(sourceText, sourceTitle)
     console.log('[upload] bootstrap done, concepts:', concepts.length)
-    const session = createSession(sourceText, sourceTitle, concepts)
+    const session = await createSession(sourceText, sourceTitle, concepts)
 
-    updateSession(session.id, {
+    await updateSession(session.id, {
       conversationHistory: [{ role: 'articulate', content: openingMessage }],
     })
 

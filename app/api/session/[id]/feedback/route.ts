@@ -3,12 +3,12 @@ import { getSession, updateSession } from '@/lib/session-store'
 import { generateFeedback } from '@/lib/feedback-generator'
 
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const session = getSession(id)
+    const session = await getSession(id)
 
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -20,7 +20,7 @@ export async function POST(
     }
 
     const feedback = await generateFeedback(session)
-    updateSession(id, { feedback, phase: 'complete' })
+    await updateSession(id, { feedback, phase: 'complete' })
 
     return NextResponse.json({ feedback })
   } catch (err) {
@@ -30,11 +30,11 @@ export async function POST(
 }
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const session = getSession(id)
+  const session = await getSession(id)
 
   if (!session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })

@@ -1,3 +1,5 @@
+import { Redis } from '@upstash/redis'
+
 export type Phase = 'recognition' | 'retrieval' | 'interpretation' | 'complete'
 
 export type Message = {
@@ -30,18 +32,24 @@ export type SessionState = {
   createdAt: number
 }
 
-// In-memory store — sufficient for MVP.
-// Use globalThis so upload + session API routes share one Map (Turbopack can otherwise
-// instantiate this module separately per route chunk, which caused "Session not found").
-const g = globalThis as unknown as { __articulateSessionStore?: Map<string, SessionState> }
-const sessions = g.__articulateSessionStore ?? new Map<string, SessionState>()
-g.__articulateSessionStore = sessions
+const SESSION_TTL_SECONDS = 60 * 60 * 24 // 24 hours
 
-export function createSession(
+function getRedis(): Redis {
+  return new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  })
+}
+
+function sessionKey(id: string) {
+  return `session:${id}`
+}
+
+export async function createSession(
   sourceMaterial: string,
   sourceTitle: string,
   concepts: Concept[]
-): SessionState {
+): Promise<SessionState> {
   const id = crypto.randomUUID()
   const session: SessionState = {
     id,
@@ -53,18 +61,23 @@ export function createSession(
     conversationHistory: [],
     createdAt: Date.now(),
   }
-  sessions.set(id, session)
+  await getRedis().set(sessionKey(id), JSON.stringify(session), { ex: SESSION_TTL_SECONDS })
   return session
 }
 
-export function getSession(id: string): SessionState | undefined {
-  return sessions.get(id)
+export async function getSession(id: string): Promise<SessionState | undefined> {
+  const data = await getRedis().get<string>(sessionKey(id))
+  if (!data) return undefined
+  return (typeof data === 'string' ? JSON.parse(data) : data) as SessionState
 }
 
-export function updateSession(id: string, updates: Partial<SessionState>): SessionState | undefined {
-  const session = sessions.get(id)
+export async function updateSession(
+  id: string,
+  updates: Partial<SessionState>
+): Promise<SessionState | undefined> {
+  const session = await getSession(id)
   if (!session) return undefined
   const updated = { ...session, ...updates }
-  sessions.set(id, updated)
+  await getRedis().set(sessionKey(id), JSON.stringify(updated), { ex: SESSION_TTL_SECONDS })
   return updated
 }

@@ -17,7 +17,9 @@ export const metadata: Metadata = {
   description:
     "Practice oral sessions on your own notes. Structured recognition, retrieval, and interpretation with adaptive follow-ups and actionable feedback.",
   icons: {
-    icon: "/icon.svg",
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
   },
 };
 
