@@ -15,6 +15,11 @@ export function Hero() {
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center">
+          <p className="text-sm font-semibold text-foreground mb-3 text-center">
+            Speech functionality is coming soon!<br />
+            Sessions will be full voice conversations. For now, sessions are text based.
+          </p>
+
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border mb-8">
             <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
             <span className="text-sm font-medium text-muted-foreground">
@@ -35,11 +40,6 @@ export function Hero() {
           <p className="max-w-2xl mx-auto text-lg sm:text-xl text-muted-foreground leading-relaxed mb-4 text-pretty">
             The AI platform that evaluates understanding through verbal explanation.
             Because explaining something is how it becomes truly yours.
-          </p>
-
-          <p className="max-w-xl mx-auto text-sm text-muted-foreground/70 mb-10">
-            Speech functionality is coming soon! 
-            Sessions will be full voice conversations. For now, sessions are text based.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
