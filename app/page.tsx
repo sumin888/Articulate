@@ -11,9 +11,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <Header />
-      <div className="w-full bg-primary px-4 py-2 text-center text-sm text-white font-medium">
-        Speech functionality is coming soon! Sessions will be full voice conversations. For now, sessions are text based.
-      </div>
       <Hero />
       <Features />
       <HowItWorks />

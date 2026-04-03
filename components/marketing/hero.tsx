@@ -32,9 +32,14 @@ export function Hero() {
             </span>
           </h1>
 
-          <p className="max-w-2xl mx-auto text-lg sm:text-xl text-muted-foreground leading-relaxed mb-10 text-pretty">
-            The AI-powered platform that evaluates understanding through verbal explanation.
+          <p className="max-w-2xl mx-auto text-lg sm:text-xl text-muted-foreground leading-relaxed mb-4 text-pretty">
+            The AI platform that evaluates understanding through verbal explanation.
             Because explaining something is how it becomes truly yours.
+          </p>
+
+          <p className="max-w-xl mx-auto text-sm text-muted-foreground/70 mb-10">
+            Speech functionality is coming soon! 
+            Sessions will be full voice conversations. For now, sessions are text based.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
