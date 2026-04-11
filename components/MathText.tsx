@@ -2,7 +2,12 @@
 
 import { useMemo } from 'react'
 import katex from 'katex'
-import { splitDisplayMath, splitInlineMath } from '@/lib/parse-math-text'
+import {
+  fixDoubleBackslashLatexCommands,
+  preprocessMathSource,
+  splitDisplayMath,
+  splitInlineMath,
+} from '@/lib/parse-math-text'
 
 type Variant = 'default' | 'onPrimary'
 
@@ -13,16 +18,28 @@ type Props = {
   variant?: Variant
 }
 
+const KATEX_OPTS = {
+  throwOnError: false,
+  strict: false as const,
+  /** Needed for \\begin{align}, matrices, etc. Math is user/LLM content in-session only. */
+  trust: true,
+}
+
 function renderKatex(tex: string, displayMode: boolean): string {
   const trimmed = tex.trim()
   if (!trimmed) return ''
   try {
-    return katex.renderToString(trimmed, {
+    let html = katex.renderToString(trimmed, {
+      ...KATEX_OPTS,
       displayMode,
-      throwOnError: false,
-      strict: false,
-      trust: false,
     })
+    if (html.includes('katex-error')) {
+      const fixed = fixDoubleBackslashLatexCommands(trimmed)
+      if (fixed !== trimmed) {
+        html = katex.renderToString(fixed, { ...KATEX_OPTS, displayMode })
+      }
+    }
+    return html
   } catch {
     return trimmed
   }
@@ -30,7 +47,7 @@ function renderKatex(tex: string, displayMode: boolean): string {
 
 export function MathText({ children, className = '', variant = 'default' }: Props) {
   const nodes = useMemo(() => {
-    const displayParts = splitDisplayMath(children)
+    const displayParts = splitDisplayMath(preprocessMathSource(children))
     const elements: React.ReactNode[] = []
     let k = 0
 

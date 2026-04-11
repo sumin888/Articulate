@@ -38,7 +38,7 @@ export default function MathInput({ prompt, onSubmit, disabled }: Props) {
           value={value}
           onChange={e => setValue(e.target.value)}
           disabled={disabled}
-          placeholder="Type your answer here. For math, use LaTeX notation: e.g. i\hbar \frac{\partial \psi}{\partial t} = \hat{H}\psi"
+          placeholder="Type your answer. For math, use LaTeX in delimiters — inline: $i\hbar\frac{\partial\psi}{\partial t}=\hat{H}\psi$ or display: $$E=mc^2$$"
           rows={3}
           className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring"
           onKeyDown={e => {

@@ -12,7 +12,7 @@ export type BootstrapSessionResult = {
   openingMessage: string
 }
 
-function stripMarkdownJsonFence(raw: string): string {
+export function stripMarkdownJsonFence(raw: string): string {
   let t = raw.trim()
   const m = t.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (m) t = m[1].trim()
@@ -87,7 +87,8 @@ Rules:
 - "concepts": exactly 5 objects.
 - "introduction": 3–6 sentences, natural spoken examiner tone. Say you have reviewed their notes and name 2–4 concrete topics, definitions, or results that actually appear above (not vague phrases like "the material"). Say this is ungraded practice. Explain the flow in order: Recognition (check they recognize key objects, terms, and what each piece is for), then Retrieval (precise statements, steps, derivations, equations where relevant), then Interpretation (meaning, limits, how it fits together). End with a short bridge like "Let's go." Do NOT ask any question in this field. Do NOT use the strings PHASE_COMPLETE or SESSION_COMPLETE anywhere.
 - "firstRecognitionQuestion": ONE question only, for the Recognition phase. It must be specific to their content — name a key object, equation, quantity, or definition from the notes and ask a pointed check (answerable in a few sentences). Do NOT ask for "central focus", "in your own words what is this about", "why it matters in STEM", or other broad essay-style prompts. Do NOT repeat the full three-phase roadmap here.
-- For any equations or symbols in "introduction" or "firstRecognitionQuestion", use LaTeX inside delimiters: inline \\(...\\) or single-dollar $...$, display on its own line with $$...$$ or \\[...\\].
+- For any equations or symbols in "introduction" or "firstRecognitionQuestion", use LaTeX inside delimiters: inline \\(...\\) or single-dollar $...$, display on its own line with $$...$$ or \\[...\\] or \\begin{...}...\\end{...}.
+- In "concepts" definitions, if you include notation, use the same LaTeX delimiter rules so downstream text stays renderable.
 
 Return only the JSON object.`,
       },

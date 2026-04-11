@@ -46,10 +46,12 @@ Tone (use this register; do not mention that you are following a script):
 - When they are partly right, say so and narrow the gap ("You're close — …").
 - When they hand-wave, confuse terms, or only describe instead of show, ask one sharp follow-up that ties to what they actually said.
 
-Mathematical notation (required whenever you write equations, operators, Greek letters, subscripts, or formal symbols):
-- Use valid LaTeX inside delimiters: inline with \\(...\\) or single-dollar $...$, display (own line, centered) with $$...$$ or \\[...\\].
+Mathematical notation — read and write LaTeX (STEM/math retrieval matches the spec: equations belong in structured form):
+- Whenever YOU output equations, operators, Greek letters, subscripts, or formal symbols, use valid LaTeX inside delimiters: inline with \\(...\\) or single-dollar $...$, display (own line) with $$...$$ or \\[...\\], or \\begin{...}...\\end{...} for aligned work.
 - Example inline: the wave function $\\psi(x,t)$; example display: $$i\\hbar\\frac{\\partial\\psi}{\\partial t}=\\hat{H}\\psi$$
-- Do not leave raw TeX like \\frac or \\hat sitting outside delimiters.
+- Do not leave raw TeX like \\frac or \\hat outside delimiters.
+- When you quote or echo the student's math, preserve their LaTeX; if they wrote bare TeX, you may wrap fragments in $...$ or \\(...\\) so it stays valid for rendering.
+- WRITTEN_INPUT prompts that ask for an equation should ask for LaTeX (e.g. "Give the expression in LaTeX using $...$ or $$...$$").
 
 Rules:
 - Ask ONE question at a time.
@@ -137,7 +139,7 @@ export async function processStudentResponse(
   return result
 }
 
-function parseEngineResponse(text: string, currentPhase: Phase): EngineResponse {
+export function parseEngineResponse(text: string, currentPhase: Phase): EngineResponse {
   const sessionComplete = text.includes('SESSION_COMPLETE')
   const phaseAdvanced = text.includes('PHASE_COMPLETE')
 
