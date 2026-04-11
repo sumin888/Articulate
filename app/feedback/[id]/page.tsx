@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import FeedbackCard from '@/components/FeedbackCard'
 import { ArticulateLogo } from '@/components/ArticulateLogo'
 import { MathText } from '@/components/MathText'
@@ -45,8 +46,11 @@ export default function FeedbackPage({ params }: FeedbackPageProps) {
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col bg-background text-foreground">
-        <header className="shrink-0 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5">
+        <header className="shrink-0 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5 flex items-center justify-between">
           <ArticulateLogo href="/" size="sm" />
+          <Link href="/reflect" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Reflect
+          </Link>
         </header>
         <div className="flex flex-1 items-center justify-center px-4">
           <p className="text-sm text-muted-foreground">Generating feedback…</p>
@@ -57,8 +61,11 @@ export default function FeedbackPage({ params }: FeedbackPageProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5">
+      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5 flex items-center justify-between">
         <ArticulateLogo href="/" size="sm" />
+        <Link href="/reflect" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+          Reflect
+        </Link>
       </header>
       <main className="px-4 py-12">
         <div className="mx-auto max-w-xl">

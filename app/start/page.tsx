@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
+
 import { ArticulateLogo } from '@/components/ArticulateLogo'
 
 const LOADING_MESSAGES = [
@@ -86,7 +87,12 @@ export default function StartSessionPage() {
             Home
           </Link>
           <ArticulateLogo href="/" size="sm" />
-          <span className="w-16" aria-hidden />
+          <Link
+            href="/reflect"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-16 text-right"
+          >
+            Reflect
+          </Link>
         </div>
       </header>
 

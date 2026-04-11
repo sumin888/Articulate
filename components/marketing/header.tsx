@@ -34,6 +34,12 @@ export function Header() {
               Modes
             </Link>
             <Link
+              href="#reflect"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Reflect
+            </Link>
+            <Link
               href="#about"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -88,6 +94,13 @@ export function Header() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Modes
+              </Link>
+              <Link
+                href="#reflect"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Reflect
               </Link>
               <Link
                 href="#about"

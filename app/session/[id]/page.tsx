@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import ChatWindow from '@/components/ChatWindow'
 import { ArticulateLogo } from '@/components/ArticulateLogo'
 import MathInput from '@/components/MathInput'
@@ -99,6 +100,12 @@ export default function SessionPage({ params }: SessionPageProps) {
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5">
         <ArticulateLogo href="/" size="sm" className="transition-opacity hover:opacity-90" />
+        <Link
+          href="/reflect"
+          className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Reflect
+        </Link>
         <button
           type="button"
           onClick={endSession}

@@ -30,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
-      <body className="font-sans min-h-screen">{children}</body>
+      <body className="font-sans min-h-screen" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
