@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { Volume2 } from 'lucide-react'
 import { MathText } from '@/components/MathText'
 import { Message } from '@/lib/session-store'
 
@@ -8,6 +9,8 @@ type Props = {
   messages: Message[]
   phase: string
   loading?: boolean
+  speakingIdx?: number | null
+  streamingText?: string | null
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -24,7 +27,7 @@ const PHASE_CLASS: Record<string, string> = {
   complete: 'bg-muted text-muted-foreground border-border',
 }
 
-export default function ChatWindow({ messages, phase, loading }: Props) {
+export default function ChatWindow({ messages, phase, loading, speakingIdx, streamingText }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -55,11 +58,23 @@ export default function ChatWindow({ messages, phase, loading }: Props) {
               }`}
             >
               {msg.role === 'articulate' && (
-                <span className="block text-xs font-semibold text-muted-foreground mb-1">Articulate</span>
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1">
+                  Articulate
+                  {speakingIdx === i && (
+                    <Volume2 className="h-3 w-3 text-primary animate-pulse" aria-label="Speaking" />
+                  )}
+                </span>
               )}
-              <MathText variant={msg.role === 'student' ? 'onPrimary' : 'default'}>
-                {msg.content}
-              </MathText>
+              {speakingIdx === i && streamingText !== null ? (
+                <span className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {streamingText}
+                  <span className="inline-block w-0.5 h-3.5 bg-current align-middle ml-0.5 animate-pulse" />
+                </span>
+              ) : (
+                <MathText variant={msg.role === 'student' ? 'onPrimary' : 'default'}>
+                  {msg.content}
+                </MathText>
+              )}
             </div>
           </div>
         ))}

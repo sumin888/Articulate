@@ -21,6 +21,7 @@ export default function StartSessionPage() {
   const [loading, setLoading] = useState(false)
   const [msgIndex, setMsgIndex] = useState(0)
   const [error, setError] = useState('')
+  const [readySession, setReadySession] = useState<{ id: string; title: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -67,7 +68,11 @@ export default function StartSessionPage() {
         return
       }
 
-      router.push(`/session/${data.sessionId}`)
+      const title =
+        mode === 'file' && file
+          ? file.name.replace(/\.[^/.]+$/, '')
+          : 'Pasted Notes'
+      setReadySession({ id: data.sessionId, title })
     } catch {
       setError('Network error. Please try again.')
     } finally {
@@ -107,7 +112,33 @@ export default function StartSessionPage() {
         </div>
 
         <div className="rounded-3xl border border-border bg-card shadow-lg p-6 sm:p-8">
-          {loading ? (
+          {readySession ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-5 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{readySession.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Session ready — three phases: recognition → retrieval → interpretation</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(`/session/${readySession.id}`)}
+                className="w-full max-w-xs py-3 rounded-xl text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors"
+              >
+                Start session
+              </button>
+              <button
+                type="button"
+                onClick={() => setReadySession(null)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Upload different material
+              </button>
+            </div>
+          ) : loading ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-6">
               <div className="flex gap-2">
                 {[0, 1, 2].map(i => (
