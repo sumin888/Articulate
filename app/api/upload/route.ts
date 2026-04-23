@@ -6,8 +6,6 @@ import type { Concept } from '@/lib/session-store'
 
 export const maxDuration = 60
 
-/** Parse only the first N pages for speed. */
-const PDF_FIRST_PAGES = 50
 
 /** Minimum extracted text to consider a PDF text-based (not image-only). */
 const IMAGE_PDF_THRESHOLD = 100
@@ -40,18 +38,10 @@ export async function POST(req: NextRequest) {
           const arrayBuffer = await file.arrayBuffer()
           const buffer = Buffer.from(arrayBuffer)
 
-          const { PDFParse } = await import('pdf-parse')
-          const parser = new PDFParse({ data: buffer })
-          try {
-            let result = await parser.getText({ first: PDF_FIRST_PAGES })
-            sourceText = result.text
-            if (sourceText.trim().length < IMAGE_PDF_THRESHOLD) {
-              result = await parser.getText()
-              sourceText = result.text
-            }
-          } finally {
-            try { await parser.destroy() } catch { /* ignore */ }
-          }
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require('pdf-parse')
+          const parsed = await pdfParse(buffer)
+          sourceText = parsed.text
 
           if (sourceText.trim().length < IMAGE_PDF_THRESHOLD) {
             emit({
