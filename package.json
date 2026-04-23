@@ -21,7 +21,8 @@
     "openai": "^6.33.0",
     "pdf-parse": "^2.4.5",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "wink-bm25-text-search": "^3.1.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

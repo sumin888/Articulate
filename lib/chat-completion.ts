@@ -6,10 +6,8 @@ export const openrouter = new OpenAI({
 })
 
 const MODELS = [
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'google/gemma-3-27b-it:free',
-  'nousresearch/hermes-3-llama-3.1-405b:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
+  'openai/gpt-5.4',
+  'anthropic/claude-sonnet-4.6',
   'google/gemma-3-12b-it:free',
 ]
 
@@ -22,6 +20,31 @@ export async function createChatCompletion(params: Omit<ChatParams, 'model' | 's
       const result = await openrouter.chat.completions.create({ ...params, model, stream: false })
       console.log('[model used]', model)
       return result
+    } catch (err: unknown) {
+      const status = (err as { status?: number })?.status
+      if (status === 429 || status === 503 || status === 404) {
+        lastError = err
+        continue
+      }
+      throw err
+    }
+  }
+  throw lastError
+}
+
+export async function* createStreamingChatCompletion(
+  params: Omit<ChatParams, 'model' | 'stream'>
+): AsyncGenerator<string> {
+  let lastError: unknown
+  for (const model of MODELS) {
+    try {
+      const stream = await openrouter.chat.completions.create({ ...params, model, stream: true })
+      console.log('[model used streaming]', model)
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content
+        if (delta) yield delta
+      }
+      return
     } catch (err: unknown) {
       const status = (err as { status?: number })?.status
       if (status === 429 || status === 503 || status === 404) {

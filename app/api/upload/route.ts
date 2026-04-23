@@ -1,70 +1,136 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { bootstrapSessionStreamable } from '@/lib/content-analyzer'
+import { chunkIntoSlides } from '@/lib/content-analyzer'
+import { createSession, updateSession, saveChunks } from '@/lib/session-store'
+import type { Concept } from '@/lib/session-store'
 
-export const maxDuration = 30
-import { bootstrapSessionFromMaterial } from '@/lib/content-analyzer'
-import { createSession, updateSession } from '@/lib/session-store'
+export const maxDuration = 60
 
-/** Parse only the first N pages for speed; enough for typical lecture PDFs. */
+/** Parse only the first N pages for speed. */
 const PDF_FIRST_PAGES = 50
 
+/** Minimum extracted text to consider a PDF text-based (not image-only). */
+const IMAGE_PDF_THRESHOLD = 100
+
+function sseEvent(data: Record<string, unknown>): string {
+  return `data: ${JSON.stringify(data)}\n\n`
+}
+
 export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData()
-    const file = formData.get('file') as File | null
-    const pastedText = formData.get('text') as string | null
+  const encoder = new TextEncoder()
 
-    let sourceText = ''
-    let sourceTitle = 'Uploaded Material'
-
-    if (file) {
-      sourceTitle = file.name.replace(/\.[^/.]+$/, '')
-      const arrayBuffer = await file.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
-
-      const { PDFParse } = await import('pdf-parse')
-      const parser = new PDFParse({ data: buffer })
-      try {
-        let result = await parser.getText({ first: PDF_FIRST_PAGES })
-        sourceText = result.text
-        if (sourceText.trim().length < 100) {
-          result = await parser.getText()
-          sourceText = result.text
-        }
-      } finally {
-        try {
-          await parser.destroy()
-        } catch (destroyErr) {
-          console.warn('[upload] parser.destroy:', destroyErr)
-        }
+  const stream = new ReadableStream({
+    async start(controller) {
+      function emit(data: Record<string, unknown>) {
+        controller.enqueue(encoder.encode(sseEvent(data)))
       }
-    } else if (pastedText) {
-      sourceText = pastedText
-      sourceTitle = 'Pasted Notes'
-    } else {
-      return NextResponse.json({ error: 'No content provided' }, { status: 400 })
-    }
 
-    if (sourceText.trim().length < 100) {
-      return NextResponse.json({ error: 'Content too short to analyze' }, { status: 400 })
-    }
+      try {
+        const formData = await req.formData()
+        const file = formData.get('file') as File | null
+        const pastedText = formData.get('text') as string | null
 
-    console.log('[upload] text extracted, length:', sourceText.length)
-    console.log('[upload] bootstrapSessionFromMaterial (single LLM call)...')
-    const { concepts, openingMessage } = await bootstrapSessionFromMaterial(sourceText, sourceTitle)
-    console.log('[upload] bootstrap done, concepts:', concepts.length)
-    const session = await createSession(sourceText, sourceTitle, concepts)
+        let sourceText = ''
+        let sourceTitle = 'Uploaded Material'
 
-    await updateSession(session.id, {
-      conversationHistory: [{ role: 'articulate', content: openingMessage }],
-    })
+        emit({ type: 'progress', message: 'Reading your material…' })
 
-    return NextResponse.json({ sessionId: session.id })
-  } catch (err) {
-    console.error('Upload error:', err)
-    const detail = err instanceof Error ? err.message : String(err)
-    return NextResponse.json(
-      { error: 'Failed to process content', detail },
-      { status: 500 }
-    )
-  }
+        if (file) {
+          sourceTitle = file.name.replace(/\.[^/.]+$/, '')
+          const arrayBuffer = await file.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+
+          const { PDFParse } = await import('pdf-parse')
+          const parser = new PDFParse({ data: buffer })
+          try {
+            let result = await parser.getText({ first: PDF_FIRST_PAGES })
+            sourceText = result.text
+            if (sourceText.trim().length < IMAGE_PDF_THRESHOLD) {
+              result = await parser.getText()
+              sourceText = result.text
+            }
+          } finally {
+            try { await parser.destroy() } catch { /* ignore */ }
+          }
+
+          if (sourceText.trim().length < IMAGE_PDF_THRESHOLD) {
+            emit({
+              type: 'error',
+              message:
+                'This PDF appears to be image-based (scanned pages with no selectable text). ' +
+                'Please upload a text-based PDF or paste your notes directly.',
+            })
+            controller.close()
+            return
+          }
+        } else if (pastedText) {
+          sourceText = pastedText
+          sourceTitle = 'Pasted Notes'
+        } else {
+          emit({ type: 'error', message: 'No content provided.' })
+          controller.close()
+          return
+        }
+
+        if (sourceText.trim().length < 100) {
+          emit({ type: 'error', message: 'Content too short to analyze.' })
+          controller.close()
+          return
+        }
+
+        console.log('[upload] text extracted, length:', sourceText.length)
+
+        // Chunk into slides and save (non-blocking relative to concept streaming)
+        emit({ type: 'progress', message: 'Chunking into slides…' })
+        const chunks = chunkIntoSlides(sourceText)
+        console.log('[upload] slide chunks:', chunks.length)
+
+        // Stream concept extraction
+        emit({ type: 'progress', message: 'Extracting key concepts…' })
+
+        const concepts: Concept[] = []
+        let openingMessage = ''
+
+        for await (const event of bootstrapSessionStreamable(sourceText, sourceTitle)) {
+          if (event.type === 'concept') {
+            concepts.push(event.concept)
+            emit({ type: 'concept', concept: event.concept })
+          } else if (event.type === 'opening') {
+            openingMessage = event.openingMessage
+          }
+        }
+
+        console.log('[upload] concepts streamed:', concepts.length)
+
+        // Build index and create session
+        emit({ type: 'progress', message: 'Building search index…' })
+
+        const session = await createSession(sourceText, sourceTitle, concepts)
+        await Promise.all([
+          updateSession(session.id, {
+            conversationHistory: [{ role: 'articulate', content: openingMessage }],
+          }),
+          saveChunks(session.id, chunks),
+        ])
+
+        console.log('[upload] session created:', session.id)
+
+        emit({ type: 'complete', sessionId: session.id })
+      } catch (err) {
+        console.error('[upload] error:', err)
+        const detail = err instanceof Error ? err.message : String(err)
+        emit({ type: 'error', message: `Failed to process content: ${detail}` })
+      } finally {
+        controller.close()
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  })
 }

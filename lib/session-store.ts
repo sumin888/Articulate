@@ -32,6 +32,11 @@ export type SessionState = {
   createdAt: number
 }
 
+export type SlideChunk = {
+  id: number
+  text: string
+}
+
 const SESSION_TTL_SECONDS = 60 * 60 * 24 // 24 hours
 
 function getRedis(): Redis {
@@ -80,4 +85,18 @@ export async function updateSession(
   const updated = { ...session, ...updates }
   await getRedis().set(sessionKey(id), JSON.stringify(updated), { ex: SESSION_TTL_SECONDS })
   return updated
+}
+
+function chunksKey(id: string) {
+  return `chunks:${id}`
+}
+
+export async function saveChunks(sessionId: string, chunks: SlideChunk[]): Promise<void> {
+  await getRedis().set(chunksKey(sessionId), JSON.stringify(chunks), { ex: SESSION_TTL_SECONDS })
+}
+
+export async function getChunks(sessionId: string): Promise<SlideChunk[]> {
+  const data = await getRedis().get<string>(chunksKey(sessionId))
+  if (!data) return []
+  return (typeof data === 'string' ? JSON.parse(data) : data) as SlideChunk[]
 }

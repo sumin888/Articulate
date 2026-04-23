@@ -40,6 +40,8 @@ function transcribeWithPulse(pcmBuffer: Buffer, sampleRate: number): Promise<str
     const done = (transcript: string) => {
       if (settled) return
       settled = true
+      clearAbsolute()
+      clearInactivity()
       ws.close()
       resolve(transcript)
     }
@@ -47,12 +49,24 @@ function transcribeWithPulse(pcmBuffer: Buffer, sampleRate: number): Promise<str
     const fail = (reason: string) => {
       if (settled) return
       settled = true
+      clearAbsolute()
+      clearInactivity()
       ws.close()
       reject(new Error(reason))
     }
 
-    // 10 s hard cap — only fires if Pulse sends nothing at all
-    const timeout = setTimeout(() => fail('Pulse STT timeout'), 10_000)
+    // Absolute hard cap (covers very long recordings)
+    const absoluteTimer = setTimeout(() => fail('Pulse STT timeout'), 30_000)
+    const clearAbsolute = () => clearTimeout(absoluteTimer)
+
+    // Inactivity timer — resets on every message. Fires when Pulse goes silent
+    // after returning results (handles cases where the socket doesn't close itself).
+    let inactivityTimer: ReturnType<typeof setTimeout> | null = null
+    const clearInactivity = () => { if (inactivityTimer) clearTimeout(inactivityTimer) }
+    const resetInactivity = () => {
+      clearInactivity()
+      inactivityTimer = setTimeout(() => done(fullTranscript.trim()), 2_000)
+    }
 
     ws.on('open', () => {
       const CHUNK = 4096
@@ -70,37 +84,34 @@ function transcribeWithPulse(pcmBuffer: Buffer, sampleRate: number): Promise<str
           is_final?: boolean
         }
 
-        if (msg.is_final) {
-          if (msg.transcript) {
-            // Got real content — resolve immediately, no need to wait for trailing empty msg
-            fullTranscript += msg.transcript
-            clearTimeout(timeout)
-            done(fullTranscript.trim())
-          } else if (!fullTranscript) {
-            // Pulse returned is_final with no content = silence / no speech detected
-            clearTimeout(timeout)
-            done('')
-          }
-          // If msg.transcript is empty but we already have content, ignore (trailing cleanup msg)
+        // Accumulate every final segment — do NOT resolve early.
+        // Pulse sends one is_final per speech segment, so a recording with
+        // pauses produces multiple is_final messages. Resolving on the first
+        // one drops everything after the first pause.
+        if (msg.is_final && msg.transcript) {
+          fullTranscript += (fullTranscript ? ' ' : '') + msg.transcript
         }
 
-        if (msg.is_last && !settled) {
-          clearTimeout(timeout)
+        // is_last signals the stream is fully done (may not always fire)
+        if (msg.is_last) {
           done(fullTranscript.trim())
+          return
         }
+
+        // Reset inactivity window after each message so we keep waiting as
+        // long as Pulse keeps sending segments
+        resetInactivity()
       } catch {
         // non-JSON frame, ignore
       }
     })
 
     ws.on('close', () => {
-      clearTimeout(timeout)
-      // Connection closed without is_last — return whatever we have
+      // Socket closed — return whatever we have accumulated
       if (!settled) done(fullTranscript)
     })
 
     ws.on('error', (err) => {
-      clearTimeout(timeout)
       console.error('[transcribe] WebSocket error:', err)
       fail(String(err))
     })

@@ -10,7 +10,6 @@ type Props = {
   phase: string
   loading?: boolean
   speakingIdx?: number | null
-  streamingText?: string | null
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -27,7 +26,7 @@ const PHASE_CLASS: Record<string, string> = {
   complete: 'bg-muted text-muted-foreground border-border',
 }
 
-export default function ChatWindow({ messages, phase, loading, speakingIdx, streamingText }: Props) {
+export default function ChatWindow({ messages, phase, loading, speakingIdx }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -65,16 +64,9 @@ export default function ChatWindow({ messages, phase, loading, speakingIdx, stre
                   )}
                 </span>
               )}
-              {speakingIdx === i && streamingText !== null ? (
-                <span className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {streamingText}
-                  <span className="inline-block w-0.5 h-3.5 bg-current align-middle ml-0.5 animate-pulse" />
-                </span>
-              ) : (
-                <MathText variant={msg.role === 'student' ? 'onPrimary' : 'default'}>
-                  {msg.content}
-                </MathText>
-              )}
+              <MathText variant={msg.role === 'student' ? 'onPrimary' : 'default'}>
+                {msg.content}
+              </MathText>
             </div>
           </div>
         ))}

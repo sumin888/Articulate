@@ -27,20 +27,17 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [writtenInputPrompt, setWrittenInputPrompt] = useState('')
   const [sessionComplete, setSessionComplete] = useState(false)
   const [error, setError] = useState('')
-  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'processing'>('idle')
+  const [voiceState, setVoiceState] = useState<'idle' | 'preparing' | 'recording' | 'processing'>('idle')
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null)
-  const [streamingText, setStreamingText] = useState<string | null>(null)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const speakAbortRef = useRef<AbortController | null>(null)
   const isRecordingRef = useRef(false)
-  const audioCtxRef = useRef<AudioContext | null>(null)
-  const processorRef = useRef<ScriptProcessorNode | null>(null)
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordingChunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
-  const pcmChunksRef = useRef<Int16Array[]>([])
 
   useEffect(() => {
     async function loadSession() {
@@ -88,12 +85,10 @@ export default function SessionPage({ params }: SessionPageProps) {
     speakAbortRef.current = controller
 
     setSpeakingIdx(idx)
-    setStreamingText('')
 
     function cleanup() {
       activeAudioRef.current = null
       setSpeakingIdx(null)
-      setStreamingText(null)
     }
 
     try {
@@ -104,34 +99,80 @@ export default function SessionPage({ params }: SessionPageProps) {
         signal: controller.signal,
       })
 
-      // If this call was superseded or the component unmounted, stop here
       if (controller.signal.aborted) return
-
       if (!res.ok) { cleanup(); return }
 
-      const blob = await res.blob()
       if (controller.signal.aborted) return
+      if (!res.body) { cleanup(); return }
 
-      const url = URL.createObjectURL(blob)
-      const audio = new Audio(url)
-      activeAudioRef.current = audio
+      // Use MediaSource to start playing as soon as the first chunk arrives,
+      // rather than waiting for the full audio download.
+      const canStream =
+        typeof MediaSource !== 'undefined' &&
+        MediaSource.isTypeSupported('audio/mpeg')
 
-      audio.onplay = () => {
-        const duration = audio.duration
-        if (!duration || isNaN(duration)) {
-          setStreamingText(text)
-          return
-        }
-        const intervalId = setInterval(() => {
-          const progress = Math.min(audio.currentTime / duration, 1)
-          setStreamingText(text.slice(0, Math.ceil(progress * text.length)))
-          if (progress >= 1) clearInterval(intervalId)
-        }, 50)
-        audio.onended = () => {
-          clearInterval(intervalId)
-          URL.revokeObjectURL(url)
-          cleanup()
-        }
+      let audio: HTMLAudioElement
+      let objectUrl: string
+
+      if (canStream) {
+        const mediaSource = new MediaSource()
+        objectUrl = URL.createObjectURL(mediaSource)
+        audio = new Audio(objectUrl)
+        activeAudioRef.current = audio
+
+        mediaSource.addEventListener('sourceopen', async () => {
+          let sb: SourceBuffer
+          try {
+            sb = mediaSource.addSourceBuffer('audio/mpeg')
+          } catch {
+            // Browser changed its mind — fall through to close
+            try { mediaSource.endOfStream() } catch { /* ignore */ }
+            return
+          }
+
+          const reader = res.body!.getReader()
+
+          async function pump() {
+            if (controller.signal.aborted) {
+              try { mediaSource.endOfStream() } catch { /* ignore */ }
+              return
+            }
+            let result: ReadableStreamReadResult<Uint8Array>
+            try {
+              result = await reader.read()
+            } catch {
+              try { mediaSource.endOfStream() } catch { /* ignore */ }
+              return
+            }
+            if (result.done) {
+              try { mediaSource.endOfStream() } catch { /* ignore */ }
+              return
+            }
+            if (sb.updating) {
+              await new Promise<void>(r => sb.addEventListener('updateend', () => r(), { once: true }))
+            }
+            try {
+              sb.appendBuffer(result.value.buffer as ArrayBuffer)
+              sb.addEventListener('updateend', pump, { once: true })
+            } catch {
+              try { mediaSource.endOfStream() } catch { /* ignore */ }
+            }
+          }
+
+          pump()
+        }, { once: true })
+      } else {
+        // Fallback: buffer the whole blob (Safari / older browsers)
+        const blob = await res.blob()
+        if (controller.signal.aborted) return
+        objectUrl = URL.createObjectURL(blob)
+        audio = new Audio(objectUrl)
+        activeAudioRef.current = audio
+      }
+
+      audio.onended = () => {
+        URL.revokeObjectURL(objectUrl)
+        cleanup()
       }
 
       audio.play().catch(cleanup)
@@ -143,47 +184,30 @@ export default function SessionPage({ params }: SessionPageProps) {
 
   async function startRecording() {
     if (isRecordingRef.current) return
-    // Lock + give immediate visual feedback before the async getUserMedia call
     isRecordingRef.current = true
-    setVoiceState('recording')
+    setVoiceState('preparing')
     setError('')
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
-      // Create AudioContext at browser's native rate (most reliable)
-      const audioCtx = new AudioContext()
-      audioCtxRef.current = audioCtx
-      pcmChunksRef.current = []
+      // Pick the best supported codec
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', ''].find(
+        t => !t || MediaRecorder.isTypeSupported(t)
+      ) ?? ''
 
-      // Explicitly resume — AudioContext can be suspended by autoplay policy
-      // even when created inside a user-gesture callback chain
-      await audioCtx.resume()
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      mediaRecorderRef.current = recorder
+      recordingChunksRef.current = []
 
-      const source = audioCtx.createMediaStreamSource(stream)
-      sourceRef.current = source
-
-      // eslint-disable-next-line @typescript-eslint/no-deprecated
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1)
-      processorRef.current = processor
-
-      processor.onaudioprocess = (e) => {
-        const f32 = e.inputBuffer.getChannelData(0)
-        const i16 = new Int16Array(f32.length)
-        for (let i = 0; i < f32.length; i++) {
-          i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767)))
-        }
-        pcmChunksRef.current.push(i16)
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data)
       }
 
-      source.connect(processor)
-      // Route through a silent gain node — keeps ScriptProcessor active
-      // without outputting mic audio to the speakers
-      const silentGain = audioCtx.createGain()
-      silentGain.gain.value = 0
-      processor.connect(silentGain)
-      silentGain.connect(audioCtx.destination)
+      // Collect in small slices so the final flush on stop() is small
+      recorder.start(100)
+      setVoiceState('recording')
     } catch (err) {
       console.error('[startRecording]', err)
       isRecordingRef.current = false
@@ -193,60 +217,74 @@ export default function SessionPage({ params }: SessionPageProps) {
   }
 
   async function stopRecording() {
-    // Use the ref — never stale, unlike voiceState in a closure
     if (!isRecordingRef.current) return
     isRecordingRef.current = false
     setVoiceState('processing')
 
-    // Disconnect audio graph and stop mic
-    try {
-      sourceRef.current?.disconnect()
-      processorRef.current?.disconnect()
-      await audioCtxRef.current?.close()
-    } catch { /* ignore */ }
-    streamRef.current?.getTracks().forEach(t => t.stop())
+    const recorder = mediaRecorderRef.current
+    const stream = streamRef.current
+    mediaRecorderRef.current = null
+    streamRef.current = null
 
-    const chunks = pcmChunksRef.current
-    const nativeRate = audioCtxRef.current?.sampleRate ?? 48000
-    audioCtxRef.current = null
-    pcmChunksRef.current = []
+    if (!recorder) {
+      setVoiceState('idle')
+      return
+    }
 
-    if (chunks.length === 0) {
+    // Wait for MediaRecorder to flush all buffered data before we read chunks
+    await new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve()
+      recorder.stop()
+    })
+
+    stream?.getTracks().forEach(t => t.stop())
+
+    const blobs = recordingChunksRef.current
+    recordingChunksRef.current = []
+
+    if (!blobs.length) {
       setError('No audio captured. Try again.')
       setVoiceState('idle')
       return
     }
 
-    // Merge Int16 chunks into a single Float32 array for resampling
-    const totalLen = chunks.reduce((s, c) => s + c.length, 0)
-    const f32 = new Float32Array(totalLen)
-    let off = 0
-    for (const c of chunks) { for (let i = 0; i < c.length; i++) f32[off++] = c[i] / 32767 }
-
-    // Resample to 16000 Hz (Pulse requires linear16 at 16 kHz)
-    const TARGET_RATE = 16000
-    let pcmData: Int16Array
-    if (nativeRate === TARGET_RATE) {
-      pcmData = new Int16Array(f32.length)
-      for (let i = 0; i < f32.length; i++) pcmData[i] = Math.round(f32[i] * 32767)
-    } else {
-      const targetLen = Math.ceil(totalLen * TARGET_RATE / nativeRate)
-      const offCtx = new OfflineAudioContext(1, targetLen, TARGET_RATE)
-      const buf = offCtx.createBuffer(1, totalLen, nativeRate)
-      buf.getChannelData(0).set(f32)
-      const src = offCtx.createBufferSource()
-      src.buffer = buf
-      src.connect(offCtx.destination)
-      src.start()
-      const rendered = await offCtx.startRendering()
-      const rf32 = rendered.getChannelData(0)
-      pcmData = new Int16Array(rf32.length)
-      for (let i = 0; i < rf32.length; i++) {
-        pcmData[i] = Math.max(-32768, Math.min(32767, Math.round(rf32[i] * 32767)))
-      }
-    }
-
     try {
+      // Decode the compressed audio blob to PCM, then resample to 16 kHz
+      const blob = new Blob(blobs, { type: recorder.mimeType || 'audio/webm' })
+      const arrayBuffer = await blob.arrayBuffer()
+
+      const decodeCtx = new AudioContext()
+      const decoded = await decodeCtx.decodeAudioData(arrayBuffer)
+      await decodeCtx.close()
+
+      const nativeRate = decoded.sampleRate
+      const sourceSamples = decoded.getChannelData(0) // take mono channel 0
+
+      const TARGET_RATE = 16000
+      let pcmData: Int16Array
+
+      if (nativeRate === TARGET_RATE) {
+        pcmData = new Int16Array(sourceSamples.length)
+        for (let i = 0; i < sourceSamples.length; i++) {
+          pcmData[i] = Math.max(-32768, Math.min(32767, Math.round(sourceSamples[i] * 32767)))
+        }
+      } else {
+        const targetLen = Math.ceil(sourceSamples.length * TARGET_RATE / nativeRate)
+        const offCtx = new OfflineAudioContext(1, targetLen, TARGET_RATE)
+        const buf = offCtx.createBuffer(1, sourceSamples.length, nativeRate)
+        buf.getChannelData(0).set(sourceSamples)
+        const src = offCtx.createBufferSource()
+        src.buffer = buf
+        src.connect(offCtx.destination)
+        src.start()
+        const rendered = await offCtx.startRendering()
+        const rf32 = rendered.getChannelData(0)
+        pcmData = new Int16Array(rf32.length)
+        for (let i = 0; i < rf32.length; i++) {
+          pcmData[i] = Math.max(-32768, Math.min(32767, Math.round(rf32[i] * 32767)))
+        }
+      }
+
       const form = new FormData()
       form.append('audio', new Blob([pcmData.buffer as ArrayBuffer], { type: 'audio/pcm' }), 'audio.pcm')
       form.append('sample_rate', String(TARGET_RATE))
@@ -259,7 +297,8 @@ export default function SessionPage({ params }: SessionPageProps) {
       } else {
         setError('Could not transcribe audio. Please try again.')
       }
-    } catch {
+    } catch (err) {
+      console.error('[stopRecording]', err)
       setError('Could not transcribe audio. Please try again.')
     } finally {
       setVoiceState('idle')
@@ -370,7 +409,7 @@ export default function SessionPage({ params }: SessionPageProps) {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col border-border lg:border-x">
           <div className="min-h-0 flex-1 overflow-hidden bg-background">
-            <ChatWindow messages={messages} phase={phase} loading={loading} speakingIdx={speakingIdx} streamingText={streamingText} />
+            <ChatWindow messages={messages} phase={phase} loading={loading} speakingIdx={speakingIdx} />
           </div>
 
           <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-4">
@@ -420,10 +459,12 @@ export default function SessionPage({ params }: SessionPageProps) {
                     <button
                       type="button"
                       onClick={() => voiceState === 'recording' ? stopRecording() : startRecording()}
-                      disabled={loading || voiceState === 'processing'}
+                      disabled={loading || voiceState === 'processing' || voiceState === 'preparing'}
                       className={`rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         voiceState === 'recording'
                           ? 'bg-primary text-primary-foreground animate-pulse'
+                          : voiceState === 'preparing'
+                          ? 'border border-border text-muted-foreground opacity-60'
                           : 'border border-border text-muted-foreground hover:text-foreground'
                       }`}
                       aria-label="Voice input"

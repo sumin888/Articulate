@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const cleanText = stripLatex(text)
 
     const res = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`,
       {
         method: 'POST',
         headers: {
@@ -63,9 +63,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'TTS failed' }, { status: 500 })
     }
 
-    const audioBuffer = await res.arrayBuffer()
-
-    return new NextResponse(audioBuffer, {
+    // Pipe ElevenLabs stream directly — no buffering, audio starts as soon as
+    // the first chunk arrives (~200–500 ms instead of waiting for the full file).
+    return new Response(res.body, {
       headers: {
         'Content-Type': 'audio/mpeg',
         'Cache-Control': 'no-store',

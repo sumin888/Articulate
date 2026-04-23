@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 30
 import { getSession, updateSession } from '@/lib/session-store'
 import { processStudentResponse } from '@/lib/session-engine'
+import { detectFallacyFireAndForget } from '@/lib/fallacy-detector'
 
 export async function POST(
   req: NextRequest,
@@ -31,6 +32,10 @@ export async function POST(
       { role: 'student' as const, content: message },
     ]
     await updateSession(id, { conversationHistory: updatedHistory })
+
+    // Fire-and-forget fallacy detection on the student message
+    const turnNumber = updatedHistory.filter(m => m.role === 'student').length
+    detectFallacyFireAndForget(id, turnNumber, message)
 
     // Get updated session and process
     const currentSession = (await getSession(id))!

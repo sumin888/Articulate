@@ -5,7 +5,11 @@ import {
   needsProbingFollowUp,
 } from './adaptive-follow-up'
 import { createChatCompletion } from './chat-completion'
-import { SessionState, Phase } from './session-store'
+import { SessionState, Phase, getChunks } from './session-store'
+import { buildBM25Index } from './bm25'
+
+/** Keep only the most recent N conversation turns to avoid context bloat. */
+const MAX_HISTORY_TURNS = 8
 
 const PHASE_LIMITS: Record<Phase, number> = {
   recognition: 3,
@@ -21,12 +25,17 @@ const NEXT_PHASE: Record<Phase, Phase> = {
   complete: 'complete',
 }
 
-function buildSystemPrompt(session: SessionState): string {
+function buildSystemPrompt(session: SessionState, relevantChunks: string[] = []): string {
   const conceptList = session.concepts
     .map(c => `- ${c.name}: ${c.definition}`)
     .join('\n')
 
-  return `You are Articulate, running a single practice oral session (low stakes — no grades, no rubric, no scores in chat). The material is usually STEM or CS notes; gaps are often crisp, so probe definitions, steps, assumptions, and whether they can show work — not only describe outcomes.
+  const chunkSection =
+    relevantChunks.length > 0
+      ? `\nRelevant slide excerpts (use for specific detail, do not quote verbatim):\n${relevantChunks.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')}\n`
+      : ''
+
+  return `You are Articulate, running a single practice oral session (low stakes — no grades, no rubric, no scores in chat). The material is usually STEM or CS notes; gaps are often crisp, so probe definitions, steps, assumptions, and whether they can show work — not only describe outcomes.${chunkSection}
 
 Source material title: ${session.sourceTitle}
 
@@ -90,11 +99,27 @@ export async function processStudentResponse(
     session.turnsInPhase >= PHASE_LIMITS[session.phase] &&
     session.phase !== 'complete'
 
+  // BM25 retrieval: load chunks and find the most relevant ones for this turn
+  let relevantChunks: string[] = []
+  try {
+    const chunks = await getChunks(session.id)
+    if (chunks.length > 0) {
+      const index = buildBM25Index(chunks)
+      const top = index.query(studentMessage, 3)
+      relevantChunks = top.map(c => c.text)
+    }
+  } catch {
+    // retrieval failure is non-fatal
+  }
+
+  // Sliding window: keep last MAX_HISTORY_TURNS messages
+  const windowedHistory = session.conversationHistory.slice(-MAX_HISTORY_TURNS)
+
   const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-    { role: 'system', content: buildSystemPrompt(session) },
+    { role: 'system', content: buildSystemPrompt(session, relevantChunks) },
   ]
 
-  for (const msg of session.conversationHistory) {
+  for (const msg of windowedHistory) {
     messages.push({
       role: msg.role === 'articulate' ? 'assistant' : 'user',
       content: msg.content,
