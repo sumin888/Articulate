@@ -6,7 +6,7 @@ export const maxDuration = 30
 // Using George (JBFqnCBsd6RMkjVDRZzb) — British male premade voice.
 // To use Dexter: add it to your VoiceLab at elevenlabs.io/voice-library,
 // then paste its voice_id here.
-const VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'
+const VOICE_ID = '19STyYD15bswVz51nqLf'
 
 /**
  * Strip LaTeX delimiters so Dexter reads the surrounding text naturally.
