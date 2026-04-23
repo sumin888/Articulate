@@ -32,8 +32,6 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
-  const activeAudioRef = useRef<HTMLAudioElement | null>(null)
-  const speakAbortRef = useRef<AbortController | null>(null)
   const isRecordingRef = useRef(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordingChunksRef = useRef<Blob[]>([])
@@ -60,126 +58,31 @@ export default function SessionPage({ params }: SessionPageProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // Single unmount cleanup: abort any in-flight TTS fetch + stop any playing audio
   useEffect(() => {
-    return () => {
-      speakAbortRef.current?.abort()
-      if (activeAudioRef.current) {
-        activeAudioRef.current.pause()
-        activeAudioRef.current.src = ''
-        activeAudioRef.current = null
-      }
-    }
+    return () => { window.speechSynthesis?.cancel() }
   }, [])
 
-  async function speakResponse(text: string, idx: number) {
-    // Abort any in-flight fetch and stop any playing audio before starting fresh
-    speakAbortRef.current?.abort()
-    if (activeAudioRef.current) {
-      activeAudioRef.current.pause()
-      activeAudioRef.current.src = ''
-      activeAudioRef.current = null
-    }
+  function speakResponse(text: string, idx: number) {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
 
-    const controller = new AbortController()
-    speakAbortRef.current = controller
-
+    window.speechSynthesis.cancel()
     setSpeakingIdx(idx)
 
-    function cleanup() {
-      activeAudioRef.current = null
-      setSpeakingIdx(null)
-    }
+    // Strip LaTeX delimiters so they aren't read aloud
+    const clean = text
+      .replace(/\$\$[\s\S]*?\$\$/g, '')
+      .replace(/\\\[[\s\S]*?\\\]/g, '')
+      .replace(/\\\([\s\S]*?\\\)/g, '')
+      .replace(/\$[^\n$]*?\$/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
 
-    try {
-      const res = await fetch('/api/voice/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-        signal: controller.signal,
-      })
-
-      if (controller.signal.aborted) return
-      if (!res.ok) { cleanup(); return }
-
-      if (controller.signal.aborted) return
-      if (!res.body) { cleanup(); return }
-
-      // Use MediaSource to start playing as soon as the first chunk arrives,
-      // rather than waiting for the full audio download.
-      const canStream =
-        typeof MediaSource !== 'undefined' &&
-        MediaSource.isTypeSupported('audio/mpeg')
-
-      let audio: HTMLAudioElement
-      let objectUrl: string
-
-      if (canStream) {
-        const mediaSource = new MediaSource()
-        objectUrl = URL.createObjectURL(mediaSource)
-        audio = new Audio(objectUrl)
-        activeAudioRef.current = audio
-
-        mediaSource.addEventListener('sourceopen', async () => {
-          let sb: SourceBuffer
-          try {
-            sb = mediaSource.addSourceBuffer('audio/mpeg')
-          } catch {
-            // Browser changed its mind — fall through to close
-            try { mediaSource.endOfStream() } catch { /* ignore */ }
-            return
-          }
-
-          const reader = res.body!.getReader()
-
-          async function pump() {
-            if (controller.signal.aborted) {
-              try { mediaSource.endOfStream() } catch { /* ignore */ }
-              return
-            }
-            let result: ReadableStreamReadResult<Uint8Array>
-            try {
-              result = await reader.read()
-            } catch {
-              try { mediaSource.endOfStream() } catch { /* ignore */ }
-              return
-            }
-            if (result.done) {
-              try { mediaSource.endOfStream() } catch { /* ignore */ }
-              return
-            }
-            if (sb.updating) {
-              await new Promise<void>(r => sb.addEventListener('updateend', () => r(), { once: true }))
-            }
-            try {
-              sb.appendBuffer(result.value.buffer as ArrayBuffer)
-              sb.addEventListener('updateend', pump, { once: true })
-            } catch {
-              try { mediaSource.endOfStream() } catch { /* ignore */ }
-            }
-          }
-
-          pump()
-        }, { once: true })
-      } else {
-        // Fallback: buffer the whole blob (Safari / older browsers)
-        const blob = await res.blob()
-        if (controller.signal.aborted) return
-        objectUrl = URL.createObjectURL(blob)
-        audio = new Audio(objectUrl)
-        activeAudioRef.current = audio
-      }
-
-      audio.onended = () => {
-        URL.revokeObjectURL(objectUrl)
-        cleanup()
-      }
-
-      audio.play().catch(cleanup)
-    } catch (err) {
-      if ((err as { name?: string }).name === 'AbortError') return
-      cleanup()
-    }
+    const utterance = new SpeechSynthesisUtterance(clean)
+    utterance.rate = 1.0
+    utterance.pitch = 1.0
+    utterance.onend = () => setSpeakingIdx(null)
+    utterance.onerror = () => setSpeakingIdx(null)
+    window.speechSynthesis.speak(utterance)
   }
 
   async function startRecording() {
