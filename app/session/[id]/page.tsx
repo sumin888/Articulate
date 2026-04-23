@@ -58,31 +58,49 @@ export default function SessionPage({ params }: SessionPageProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null)
+  const speakAbortRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
-    return () => { window.speechSynthesis?.cancel() }
+    return () => {
+      speakAbortRef.current?.abort()
+      activeAudioRef.current?.pause()
+    }
   }, [])
 
-  function speakResponse(text: string, idx: number) {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return
+  async function speakResponse(text: string, idx: number) {
+    speakAbortRef.current?.abort()
+    activeAudioRef.current?.pause()
+    activeAudioRef.current = null
 
-    window.speechSynthesis.cancel()
+    const controller = new AbortController()
+    speakAbortRef.current = controller
     setSpeakingIdx(idx)
 
-    // Strip LaTeX delimiters so they aren't read aloud
-    const clean = text
-      .replace(/\$\$[\s\S]*?\$\$/g, '')
-      .replace(/\\\[[\s\S]*?\\\]/g, '')
-      .replace(/\\\([\s\S]*?\\\)/g, '')
-      .replace(/\$[^\n$]*?\$/g, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim()
+    try {
+      const res = await fetch('/api/voice/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      })
 
-    const utterance = new SpeechSynthesisUtterance(clean)
-    utterance.rate = 1.0
-    utterance.pitch = 1.0
-    utterance.onend = () => setSpeakingIdx(null)
-    utterance.onerror = () => setSpeakingIdx(null)
-    window.speechSynthesis.speak(utterance)
+      if (!res.ok || !res.body || controller.signal.aborted) {
+        setSpeakingIdx(null)
+        return
+      }
+
+      const blob = await res.blob()
+      if (controller.signal.aborted) return
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      activeAudioRef.current = audio
+      audio.onended = () => { URL.revokeObjectURL(url); setSpeakingIdx(null) }
+      audio.onerror = () => { URL.revokeObjectURL(url); setSpeakingIdx(null) }
+      audio.play().catch(() => setSpeakingIdx(null))
+    } catch (err) {
+      if ((err as { name?: string }).name !== 'AbortError') setSpeakingIdx(null)
+    }
   }
 
   async function startRecording() {
