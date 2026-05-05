@@ -9,7 +9,10 @@ import { ArticulateLogo } from '@/components/ArticulateLogo'
 import MathInput from '@/components/MathInput'
 import { SessionHistoryRail } from '@/components/session/SessionHistoryRail'
 import { SessionStudyRail } from '@/components/session/SessionStudyRail'
-import { Message, Phase } from '@/lib/session-store'
+import { SourceViewer } from '@/components/session/SourceViewer'
+import { ProgressBars } from '@/components/session/ProgressBars'
+import type { Message, Phase, MessageCitation } from '@/lib/session-store'
+import type { ProgressState } from '@/lib/progress-evaluator'
 
 type SessionPageProps = {
   params: Promise<{ id: string }>
@@ -31,6 +34,16 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
+
+  // ── Practice-mode-only state ───────────────────────────────────────────────
+  const [sessionMode, setSessionMode] = useState<'practice' | 'evaluation' | 'brainstorming'>('practice')
+  const [courseId, setCourseId] = useState<string | null>(null)
+  const [, setCalibrationVersionId] = useState<string | null>(null)
+  const [activeCitation, setActiveCitation] = useState<MessageCitation | null>(null)
+  const [progress, setProgress] = useState<ProgressState | null>(null)
+  // Whether to show SourceViewer vs SessionStudyRail in the right panel
+  const isPracticeWithCourse = sessionMode === 'practice' && !!courseId
+
   const inputRef = useRef<HTMLInputElement>(null)
   const isRecordingRef = useRef(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -41,10 +54,10 @@ export default function SessionPage({ params }: SessionPageProps) {
     async function loadSession() {
       const res = await fetch(`/api/session/${id}/feedback`)
       if (!res.ok) return
-      const data = await res.json()
+      const data = await res.json() as { history?: Message[]; phase?: Phase }
       if (data.history?.length) {
         setMessages(data.history)
-        const history: { role: string; content: string }[] = data.history
+        const history = data.history
         if (history.length === 1 && history[0].role === 'articulate') {
           speakResponse(history[0].content, 0)
         }
@@ -52,11 +65,38 @@ export default function SessionPage({ params }: SessionPageProps) {
       if (data.phase && data.phase !== 'complete') {
         setPhase(data.phase)
       }
+
+      // Load progress/mode for course-linked sessions
+      const progRes = await fetch(`/api/session/${id}/progress`)
+      if (progRes.ok) {
+        const progData = await progRes.json() as {
+          mode: 'practice' | 'evaluation' | 'brainstorming'
+          courseId: string | null
+          calibrationVersionId: string | null
+          progress: ProgressState | null
+        }
+        setSessionMode(progData.mode)
+        setCourseId(progData.courseId)
+        setCalibrationVersionId(progData.calibrationVersionId)
+        setProgress(progData.progress)
+      }
     }
     loadSession()
-  // speakResponse is stable (no deps), safe to include
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  // Poll for progress updates in practice mode (async evaluator may update after response)
+  useEffect(() => {
+    if (!isPracticeWithCourse) return
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/session/${id}/progress`)
+      if (res.ok) {
+        const data = await res.json() as { progress: ProgressState | null }
+        if (data.progress) setProgress(data.progress)
+      }
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [id, isPracticeWithCourse])
 
   const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const speakAbortRef = useRef<AbortController | null>(null)
@@ -113,7 +153,6 @@ export default function SessionPage({ params }: SessionPageProps) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
-      // Pick the best supported codec
       const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', ''].find(
         t => !t || MediaRecorder.isTypeSupported(t)
       ) ?? ''
@@ -126,7 +165,6 @@ export default function SessionPage({ params }: SessionPageProps) {
         if (e.data.size > 0) recordingChunksRef.current.push(e.data)
       }
 
-      // Collect in small slices so the final flush on stop() is small
       recorder.start(100)
       setVoiceState('recording')
     } catch (err) {
@@ -152,7 +190,6 @@ export default function SessionPage({ params }: SessionPageProps) {
       return
     }
 
-    // Wait for MediaRecorder to flush all buffered data before we read chunks
     await new Promise<void>((resolve) => {
       recorder.onstop = () => resolve()
       recorder.stop()
@@ -170,7 +207,6 @@ export default function SessionPage({ params }: SessionPageProps) {
     }
 
     try {
-      // Decode the compressed audio blob to PCM, then resample to 16 kHz
       const blob = new Blob(blobs, { type: recorder.mimeType || 'audio/webm' })
       const arrayBuffer = await blob.arrayBuffer()
 
@@ -179,7 +215,7 @@ export default function SessionPage({ params }: SessionPageProps) {
       await decodeCtx.close()
 
       const nativeRate = decoded.sampleRate
-      const sourceSamples = decoded.getChannelData(0) // take mono channel 0
+      const sourceSamples = decoded.getChannelData(0)
 
       const TARGET_RATE = 16000
       let pcmData: Int16Array
@@ -210,7 +246,7 @@ export default function SessionPage({ params }: SessionPageProps) {
       form.append('audio', new Blob([pcmData.buffer as ArrayBuffer], { type: 'audio/pcm' }), 'audio.pcm')
       form.append('sample_rate', String(TARGET_RATE))
       const res = await fetch('/api/voice/transcribe', { method: 'POST', body: form })
-      const data = await res.json()
+      const data = await res.json() as { transcript?: string }
       if (data.transcript?.trim()) {
         await sendMessage(data.transcript.trim())
       } else if (!data.transcript && res.ok) {
@@ -242,14 +278,28 @@ export default function SessionPage({ params }: SessionPageProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: content }),
       })
-      const data = await res.json()
+      const data = await res.json() as {
+        message: string
+        requestsWrittenInput?: boolean
+        writtenInputPrompt?: string
+        phase: Phase
+        sessionComplete: boolean
+        citations?: MessageCitation[]
+        error?: string
+      }
 
       if (!res.ok) {
         setError(data.error ?? 'Something went wrong.')
         return
       }
 
-      const nextMessages = [...newMessages, { role: 'articulate' as const, content: data.message }]
+      const nextMessage: Message = {
+        role: 'articulate',
+        content: data.message,
+        // ── Practice mode only: attach citations ──────────────────────────────
+        ...(isPracticeWithCourse && data.citations?.length ? { citations: data.citations } : {}),
+      }
+      const nextMessages = [...newMessages, nextMessage]
       setMessages(nextMessages)
       setPhase(data.phase)
       setRequestsWrittenInput(data.requestsWrittenInput ?? false)
@@ -283,42 +333,49 @@ export default function SessionPage({ params }: SessionPageProps) {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="flex shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5">
-        <div className="flex items-center gap-2">
-          <ArticulateLogo href="/" size="sm" className="transition-opacity hover:opacity-90" />
-          <button
-            type="button"
-            onClick={() => setLeftOpen(o => !o)}
-            className="hidden lg:flex items-center justify-center rounded-lg border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={leftOpen ? 'Hide history panel' : 'Show history panel'}
+      <header className="flex shrink-0 flex-col border-b border-border bg-background/90 backdrop-blur-md">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2">
+            <ArticulateLogo href="/" size="sm" className="transition-opacity hover:opacity-90" />
+            <button
+              type="button"
+              onClick={() => setLeftOpen(o => !o)}
+              className="hidden lg:flex items-center justify-center rounded-lg border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={leftOpen ? 'Hide history panel' : 'Show history panel'}
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
+          </div>
+          <Link
+            href="/reflect"
+            className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            <PanelLeft className="h-4 w-4" />
-          </button>
+            Reflect
+          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRightOpen(o => !o)}
+              className="hidden lg:flex items-center justify-center rounded-lg border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={rightOpen ? 'Hide panel' : 'Show panel'}
+            >
+              <PanelRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={endSession}
+              disabled={loading || messages.length < 2}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              End session & get feedback
+            </button>
+          </div>
         </div>
-        <Link
-          href="/reflect"
-          className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Reflect
-        </Link>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setRightOpen(o => !o)}
-            className="hidden lg:flex items-center justify-center rounded-lg border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={rightOpen ? 'Hide study panel' : 'Show study panel'}
-          >
-            <PanelRight className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={endSession}
-            disabled={loading || messages.length < 2}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            End session & get feedback
-          </button>
-        </div>
+
+        {/* ── Progress bars: practice + course-linked only ─────────────────── */}
+        {isPracticeWithCourse && (
+          <ProgressBars phase={phase} progress={progress} />
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -330,7 +387,14 @@ export default function SessionPage({ params }: SessionPageProps) {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col border-border lg:border-x">
           <div className="min-h-0 flex-1 overflow-hidden bg-background">
-            <ChatWindow messages={messages} phase={phase} loading={loading} speakingIdx={speakingIdx} />
+            {/* ChatWindow receives citation click handler in practice+course mode */}
+            <ChatWindow
+              messages={messages}
+              phase={phase}
+              loading={loading}
+              speakingIdx={speakingIdx}
+              onCitationClick={isPracticeWithCourse ? setActiveCitation : undefined}
+            />
           </div>
 
           <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-4">
@@ -407,9 +471,17 @@ export default function SessionPage({ params }: SessionPageProps) {
           </div>
         </div>
 
+        {/* ── Right panel: SourceViewer (practice+course) or StudyRail (other) ── */}
         {rightOpen && (
           <div className="hidden h-full min-h-0 w-72 shrink-0 lg:block">
-            <SessionStudyRail />
+            {isPracticeWithCourse ? (
+              <SourceViewer
+                citation={activeCitation}
+                onClose={() => setActiveCitation(null)}
+              />
+            ) : (
+              <SessionStudyRail />
+            )}
           </div>
         )}
       </div>

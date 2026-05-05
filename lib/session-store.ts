@@ -1,11 +1,25 @@
 import { Redis } from '@upstash/redis'
+import type { ProgressState } from './progress-evaluator'
 
 export type Phase = 'recognition' | 'retrieval' | 'interpretation' | 'complete'
+
+export type SessionMode = 'practice' | 'evaluation' | 'brainstorming'
+
+export type MessageCitation = {
+  phrase: string
+  chunkId: string
+  confidence: number
+  sourceId: string
+  pageNumber?: number | null
+  slideNumber?: number | null
+  paragraphIndex?: number | null
+}
 
 export type Message = {
   role: 'articulate' | 'student'
   content: string
   isWrittenInput?: boolean
+  citations?: MessageCitation[]
 }
 
 export type Concept = {
@@ -30,6 +44,11 @@ export type SessionState = {
   conversationHistory: Message[]
   feedback?: Feedback
   createdAt: number
+  // Course-linked session fields (undefined for standalone sessions)
+  mode?: SessionMode
+  courseId?: string
+  calibrationVersionId?: string
+  progress?: ProgressState
 }
 
 export type SlideChunk = {

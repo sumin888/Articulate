@@ -3,13 +3,15 @@
 import { useEffect, useRef } from 'react'
 import { Volume2 } from 'lucide-react'
 import { MathText } from '@/components/MathText'
-import { Message } from '@/lib/session-store'
+import { CitedMessage } from '@/components/session/CitedMessage'
+import type { Message, MessageCitation } from '@/lib/session-store'
 
 type Props = {
   messages: Message[]
   phase: string
   loading?: boolean
   speakingIdx?: number | null
+  onCitationClick?: (citation: MessageCitation) => void
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -26,7 +28,7 @@ const PHASE_CLASS: Record<string, string> = {
   complete: 'bg-muted text-muted-foreground border-border',
 }
 
-export default function ChatWindow({ messages, phase, loading, speakingIdx }: Props) {
+export default function ChatWindow({ messages, phase, loading, speakingIdx, onCitationClick }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,9 +66,20 @@ export default function ChatWindow({ messages, phase, loading, speakingIdx }: Pr
                   )}
                 </span>
               )}
-              <MathText variant={msg.role === 'student' ? 'onPrimary' : 'default'}>
-                {msg.content}
-              </MathText>
+
+              {/* ── Practice mode only: cited messages ─────────────────── */}
+              {msg.role === 'articulate' && msg.citations?.length && onCitationClick ? (
+                <CitedMessage
+                  content={msg.content}
+                  citations={msg.citations}
+                  onCitationClick={onCitationClick}
+                  variant="default"
+                />
+              ) : (
+                <MathText variant={msg.role === 'student' ? 'onPrimary' : 'default'}>
+                  {msg.content}
+                </MathText>
+              )}
             </div>
           </div>
         ))}
